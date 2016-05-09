@@ -1,0 +1,59 @@
+{
+  "name": "kuzzle-enterprise-probe",
+  "version": "0.0.1",
+  "description": "Kuzzle Enterprise plugin: statistical data probe",
+  "main": "./lib/index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kuzzleio/kuzzle-enterprise-probe.git"
+  },
+  "scripts": {
+    "test": "istanbul cover _mocha"
+  },
+  "keywords": [
+    "kuzzle",
+    "enterprise",
+    "plugin",
+    "worker",
+    "probe"
+  ],
+  "author": {
+    "name": "Kuzzle Team"
+  },
+  "bugs": {
+    "url": "https://github.com/kuzzleio/kuzzle-enterprise-probe/issues"
+  },
+  "pluginInfo": {
+    "defaultConfig": {
+      "threads": 1,
+      "loadedBy": "server",
+      "databases": [
+        "localhost:9200"
+      ],
+      "storageIndex": "measures",
+      "probes": {}
+    }
+  },
+  "license": "Apache-2.0",
+  "dependencies": {
+    "elasticsearch": "^11.0.1",
+    "lodash": "^4.12.0",
+    "ms": "^0.7.1",
+    "q": "^1.4.1"
+  },
+  "devDependencies": {
+    "grunt": "^1.0.1",
+    "grunt-contrib-jshint": "^1.0.0",
+    "gruntify-eslint": "^2.0.0"
+  },
+  "maintainers": [
+    {
+      "name": "kuzzle",
+      "email": "support@kuzzle.io"
+    }
+  ],
+  "engines": {
+    "node": ">= 4.3.1",
+    "npm": ">= 2.14.4"
+  }
+}
