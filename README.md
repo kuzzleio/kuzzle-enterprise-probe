@@ -1,26 +1,23 @@
 <p align=center> ![logo](http://kuzzle.io/guide/images/kuzzle.svg)
 
-# Table of content
+# Table of Contents
 
-* [Table of content](#table-of-content" aria-hidden="true"><span aria-hidden="true)
-* [About](#about" aria-hidden="true"><span aria-hidden="true)
-* [Plugin configuration](#plugin-configuration" aria-hidden="true"><span aria-hidden="true)
-  * [Installation](#installation" aria-hidden="true"><span aria-hidden="true)
-  * [General configuration](#general-configuration" aria-hidden="true"><span aria-hidden="true)
-  * [Retrieving probe measures](#retrieving-probe-measures" aria-hidden="true"><span aria-hidden="true)
-* [Probes description](#probes-description" aria-hidden="true"><span aria-hidden="true)
-  * [monitor probes](#monitor-probes" aria-hidden="true"><span aria-hidden="true)
-    * [Description](#description" aria-hidden="true"><span aria-hidden="true)
-    * [Configuration](#configuration" aria-hidden="true"><span aria-hidden="true)
-    * [Measure document](#measure-document" aria-hidden="true"><span aria-hidden="true)
-    * [Adding a monitor probe](#adding-a-monitor-probe" aria-hidden="true"><span aria-hidden="true)
-  * [counter probes](#counter-probes" aria-hidden="true"><span aria-hidden="true)
-    * [Description](#description-1" aria-hidden="true"><span aria-hidden="true)
-    * [Configuration](#configuration-1" aria-hidden="true"><span aria-hidden="true)
-    * [Measure document](#measure-document-1" aria-hidden="true"><span aria-hidden="true)
-    * [Adding a counter probe](#adding-a-counter-probe" aria-hidden="true"><span aria-hidden="true)
-
-
+- [About](#about)
+- [Plugin configuration](#plugin-configuration)
+  - [Installation](#installation)
+  - [General configuration](#general-configuration)
+  - [Retrieving probe measures](#retrieving-probe-measures)
+- [Probes description](#probes-description)
+  - [`monitor` probes](#monitor-probes)
+    - [Description](#description)
+    - [Configuration](#configuration)
+    - [Measure document](#measure-document)
+    - [Adding a `monitor` probe](#adding-a-monitor-probe)
+  - [`counter` probes](#counter-probes)
+    - [Description](#description-1)
+    - [Configuration](#configuration-1)
+    - [Measure document](#measure-document-1)
+    - [Adding a `counter` probe](#adding-a-counter-probe)
 
 # About
 
