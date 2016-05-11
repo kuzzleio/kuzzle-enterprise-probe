@@ -42,9 +42,11 @@
     "q": "^1.4.1"
   },
   "devDependencies": {
+    "eslint": "^2.9.0",
     "grunt": "^1.0.1",
     "grunt-contrib-jshint": "^1.0.0",
-    "gruntify-eslint": "^2.0.0"
+    "gruntify-eslint": "^2.0.0",
+    "jslint": "^0.9.6"
   },
   "maintainers": [
     {
