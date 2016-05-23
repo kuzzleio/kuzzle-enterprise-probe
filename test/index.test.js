@@ -2,7 +2,7 @@ var
   should = require('should'),
   sinon = require('sinon'),
   proxyquire = require('proxyquire'),
-  Elasticsearch = require('elasticsearch');
+  lolex = require('lolex');
 
 require('sinon-as-promised');
 
@@ -255,39 +255,209 @@ describe('#Testing index file', () => {
     }, 0);
   });
 
-  it.only('should only save the measure after the given interval', (done) => {
-    var clock = sinon.useFakeTimers();
+  it('should only save the measure after the given interval', (done) => {
+    var 
+      clock = lolex.install(),
+      pluginConfig = {
+        databases: ['foo'],
+        storageIndex: 'bar',
+        probes: {
+          foo: {
+            type: 'monitor',
+            hooks: ['foo:bar'],
+            interval: '1s'
+          }
+        }
+      };
 
+    plugin.init(pluginConfig)
+      .then(() => {
+        sinon.stub(plugin.client, 'create').resolves();
+        
+        plugin.monitor('foo:bar');
+        should(plugin.client.create.called).be.false();
+
+        clock.next();
+        should(plugin.client.create.calledOnce).be.true();
+        should(plugin.client.create.calledWithMatch({
+          index: 'bar',
+          type: 'foo',
+          body: {
+            'foo:bar': 1
+          }
+        })).be.true();
+
+        clock.uninstall();
+        plugin.client.create.restore();
+        setTimeout(() => {
+          should(plugin.measures.foo['foo:bar']).be.eql(0);
+          done();
+        }, 0);
+      })
+      .catch(err => done(err));
+  });
+
+  it('should not reset the measure if an error during saving occurs', (done) => {
+    var
+      clock = lolex.install(),
+      pluginConfig = {
+        databases: ['foo'],
+        storageIndex: 'bar',
+        probes: {
+          foo: {
+            type: 'monitor',
+            hooks: ['foo:bar'],
+            interval: '1s'
+          }
+        }
+      };
+
+    plugin.init(pluginConfig)
+      .then(() => {
+        sinon.stub(plugin.client, 'create').rejects(new Error('foobar'));
+
+        plugin.monitor('foo:bar');
+        should(plugin.client.create.called).be.false();
+
+        clock.next();
+        should(plugin.client.create.calledOnce).be.true();
+        should(plugin.client.create.calledWithMatch({
+          index: 'bar',
+          type: 'foo',
+          body: {
+            'foo:bar': 1
+          }
+        })).be.true();
+
+        clock.uninstall();
+        plugin.client.create.restore();
+        setTimeout(() => {
+          should(plugin.measures.foo['foo:bar']).be.eql(1);
+          done();
+        }, 0);
+      })
+      .catch(err => done(err));
+  });
+
+  it('should save immediately an increasing counter if no interval is set', (done) => {
     plugin.init({
       databases: ['foo'],
       storageIndex: 'bar',
       probes: {
         foo: {
-          type: 'monitor',
-          hooks: ['foo:bar'],
-          interval: '1s'
+          type: 'counter',
+          increasers: ['foo:bar', 'bar:baz'],
+          decreasers: ['baz:qux', 'qux:foo']
         }
       }
     });
 
     sinon.stub(plugin.client, 'create').resolves();
-    plugin.monitor('foo:bar');
-    should(plugin.client.create.called).be.false();
-    clock.tick(1000);
+    plugin.counter('foo:bar');
     should(plugin.client.create.calledOnce).be.true();
     should(plugin.client.create.calledWithMatch({
       index: 'bar',
       type: 'foo',
       body: {
-        'foo:bar': 1
+        'count': 1
       }
     })).be.true();
 
-    clock.restore();
     plugin.client.create.restore();
+
+    // measure should never be reset
     setTimeout(() => {
-      should(plugin.measures.foo['foo:bar']).be.eql(0);
+      should(plugin.measures.foo.count).be.eql(1);
       done();
     }, 0);
+  });
+
+  it('should save immediately an decreasing counter if no interval is set', (done) => {
+    plugin.init({
+      databases: ['foo'],
+      storageIndex: 'bar',
+      probes: {
+        foo: {
+          type: 'counter',
+          increasers: ['foo:bar', 'bar:baz'],
+          decreasers: ['baz:qux', 'qux:foo']
+        }
+      }
+    });
+
+    sinon.stub(plugin.client, 'create').resolves();
+    plugin.counter('qux:foo');
+    should(plugin.client.create.calledOnce).be.true();
+    should(plugin.client.create.calledWithMatch({
+      index: 'bar',
+      type: 'foo',
+      body: {
+        'count': -1
+      }
+    })).be.true();
+
+    plugin.counter('baz:qux');
+    should(plugin.client.create.calledTwice).be.true();
+    should(plugin.client.create.calledWithMatch({
+      index: 'bar',
+      type: 'foo',
+      body: {
+        'count': -2
+      }
+    })).be.true();
+
+    plugin.client.create.restore();
+
+    // measure should never be reset
+    setTimeout(() => {
+      should(plugin.measures.foo.count).be.eql(-2);
+      done();
+    }, 0);
+  });
+
+  it('should only save the counter after the given interval', (done) => {
+    var
+      clock = lolex.install(),
+      pluginConfig = {
+        databases: ['foo'],
+        storageIndex: 'bar',
+        probes: {
+          foo: {
+            type: 'counter',
+            increasers: ['foo:bar', 'bar:baz'],
+            decreasers: ['baz:qux', 'qux:foo'],
+            interval: 1000
+          }
+        }
+      };
+
+    plugin.init(pluginConfig)
+      .then(() => {
+        sinon.stub(plugin.client, 'create').resolves();
+
+        // 2 increasers + 1 decreaser => count must be equal to 1
+        plugin.counter('foo:bar');
+        plugin.counter('bar:baz');
+        plugin.counter('qux:foo');
+        should(plugin.client.create.called).be.false();
+
+        clock.next();
+        should(plugin.client.create.calledOnce).be.true();
+        should(plugin.client.create.calledWithMatch({
+          index: 'bar',
+          type: 'foo',
+          body: {
+            count: 1
+          }
+        })).be.true();
+
+        clock.uninstall();
+        plugin.client.create.restore();
+        setTimeout(() => {
+          should(plugin.measures.foo.count).be.eql(1);
+          done();
+        }, 0);
+      })
+      .catch(err => done(err));
   });
 });
