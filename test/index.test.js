@@ -10,7 +10,17 @@ describe('#Testing index file', () => {
   var
     Plugin,
     plugin,
-    esStub;
+    esStub,
+    fakeContext = {
+      constructors: {
+        Dsl: function () {
+          return {
+            register: () => {},
+            createFilterId: () => {}
+          };
+        }
+      }
+    };
 
   before(() => {
     esStub = sinon.stub().returns({
@@ -83,7 +93,7 @@ describe('#Testing index file', () => {
           hooks: ['foo:bar']
         }
       }
-    }, {}, true);
+    }, fakeContext, true);
 
     should(plugin.dummy).be.true();
     should(plugin.probes).not.be.empty();
@@ -118,7 +128,7 @@ describe('#Testing index file', () => {
           interval: 'Never gonna give you up'
         }
       }
-    }, {}, false);
+    }, fakeContext, false);
 
     should(plugin.probes.foo).not.be.empty().and.have.property('interval').undefined();
     should(plugin.probes.bar).not.be.empty().and.have.property('interval').eql(60 * 60 * 1000);
@@ -146,7 +156,7 @@ describe('#Testing index file', () => {
           decreasers: ['foo:bar']
         }
       }
-    }, {}, false);
+    }, fakeContext, false);
 
     should(plugin.dummy).be.false();
     should(plugin.hooks['foo:bar']).match(['monitor', 'counter']);
@@ -178,7 +188,7 @@ describe('#Testing index file', () => {
           hooks: ['foo:bar', 'bar:baz', 'foo:bar']
         }
       }
-    }, {}, false);
+    }, fakeContext, false);
 
     should(plugin.dummy).be.false();
     should(plugin.eventMapping.monitor['foo:bar']).match(['foo', 'qux']);
@@ -214,7 +224,7 @@ describe('#Testing index file', () => {
           hooks: ['foo:bar', 'bar:baz', 'foo:bar']
         }
       }
-    }, {}, false);
+    }, fakeContext, false);
 
     should(plugin.dummy).be.false();
     should(plugin.measures.foo).match({'foo:bar': 0});
@@ -233,7 +243,7 @@ describe('#Testing index file', () => {
           hooks: ['foo:bar']
         }
       }
-    });
+    }, fakeContext);
 
     sinon.stub(plugin.client, 'create').resolves();
     plugin.monitor('foo:bar');
@@ -270,7 +280,7 @@ describe('#Testing index file', () => {
         }
       };
 
-    plugin.init(pluginConfig)
+    plugin.init(pluginConfig, fakeContext)
       .then(() => {
         sinon.stub(plugin.client, 'create').resolves();
         
@@ -312,7 +322,7 @@ describe('#Testing index file', () => {
         }
       };
 
-    plugin.init(pluginConfig)
+    plugin.init(pluginConfig, fakeContext)
       .then(() => {
         sinon.stub(plugin.client, 'create').rejects(new Error('foobar'));
 
@@ -350,7 +360,7 @@ describe('#Testing index file', () => {
           decreasers: ['baz:qux', 'qux:foo']
         }
       }
-    });
+    }, fakeContext);
 
     sinon.stub(plugin.client, 'create').resolves();
     plugin.counter('foo:bar');
@@ -383,7 +393,7 @@ describe('#Testing index file', () => {
           decreasers: ['baz:qux', 'qux:foo']
         }
       }
-    });
+    }, fakeContext);
 
     sinon.stub(plugin.client, 'create').resolves();
     plugin.counter('qux:foo');
@@ -431,7 +441,7 @@ describe('#Testing index file', () => {
         }
       };
 
-    plugin.init(pluginConfig)
+    plugin.init(pluginConfig, fakeContext)
       .then(() => {
         sinon.stub(plugin.client, 'create').resolves();
 
