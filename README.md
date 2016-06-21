@@ -318,7 +318,7 @@ The `timestamp` field is automatically added, and mark the end of a measurement.
 
 The probe `probe_watcher_2` will act like this: it watches documents and messages sent to index `some index` and collection `some data collection`. If, and only if, a document/message matches the provided filter, then the probe will increment a document counter (there is no attribute to collect).
 
-Then, each 1 hour, a new measure document will be written, looking like this:
+Then, every 1 hour, a new measure document will be written, looking like this:
 
 ```json
 {
