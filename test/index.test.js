@@ -2,7 +2,9 @@ var
   should = require('should'),
   sinon = require('sinon'),
   proxyquire = require('proxyquire'),
-  lolex = require('lolex');
+  lolex = require('lolex'),
+  StubContext = require('./stubs/context.stub'),
+  StubElasticsearch = require('./stubs/elasticsearch.stub');
 
 require('sinon-as-promised');
 
@@ -11,36 +13,26 @@ describe('#Testing index file', () => {
     Plugin,
     plugin,
     esStub,
-    fakeContext = {
-      constructors: {
-        Dsl: function () {
-          return {
-            register: () => {},
-            createFilterId: () => {}
-          };
-        }
-      }
-    };
+    sandbox,
+    fakeContext;
 
   before(() => {
-    esStub = sinon.stub().returns({
-      indices: {
-        exists: sinon.stub().resolves(false),
-        create: sinon.stub()
-      },
-      create: function () {}
-    });
+    esStub = new StubElasticsearch();
 
     Plugin = proxyquire('../lib/index', {
       'elasticsearch': {
         Client: esStub
       }
     });
+
+    sandbox = sinon.sandbox.create();
   });
 
   beforeEach(() => {
     plugin = new Plugin();
     esStub.reset();
+    sandbox.reset();
+    fakeContext = new StubContext();
   });
 
 
@@ -66,7 +58,7 @@ describe('#Testing index file', () => {
     plugin.init({
       databases: ['foo'],
       storageIndex: 'bar'
-    }, {}, false);
+    }, fakeContext, false);
 
     should(plugin.dummy).be.true();
     should(plugin.probes).be.empty();
@@ -76,7 +68,7 @@ describe('#Testing index file', () => {
       databases: ['foo'],
       storageIndex: 'bar',
       probes: {}
-    }, {}, false);
+    }, fakeContext, false);
 
     should(plugin.dummy).be.true();
     should(plugin.probes).be.empty();
@@ -100,40 +92,39 @@ describe('#Testing index file', () => {
     should(plugin.client).be.null();
   });
 
-  it('should initialize the probes list according to their configuration', () => {
+  it('should prepare the DSL at startup', () => {
+    var
+      stubRegister = sinon.stub(),
+      stubCreateFilterId = sinon.stub().returns('foobar');
+
+    fakeContext = {
+      constructors: {
+        Dsl: function () {
+          return {
+            register: stubRegister,
+            createFilterId: stubCreateFilterId
+          };
+        }
+      }
+    };
+
     plugin.init({
       databases: ['foo'],
       storageIndex: 'bar',
       probes: {
         foo: {
-          type: 'monitor',
-          hooks: ['foo:bar'],
-          interval: 'none'
-        },
-        bar: {
-          type: 'counter',
-          increasers: ['bar:baz', 'foo:bar', 'foo:bar'],
-          decreasers: ['baz:qux'],
-          interval: '1 hour'
-        },
-        badProbe1: {
-          type: 'counter',
-          increasers: ['baz:qux'],
-          decreasers: ['baz:qux'],
-          interval: '1m'
-        },
-        badProbe2: {
-          type: 'monitor',
-          hooks: ['foo:bar', 'bar:baz'],
-          interval: 'Never gonna give you up'
+          type: 'watcher',
+          index: 'foo',
+          collection: 'bar',
+          filter: {}
         }
       }
     }, fakeContext, false);
 
-    should(plugin.probes.foo).not.be.empty().and.have.property('interval').undefined();
-    should(plugin.probes.bar).not.be.empty().and.have.property('interval').eql(60 * 60 * 1000);
-    should(plugin.probes.badProbe1).be.undefined();
-    should(plugin.probes.badProbe2).be.undefined();
+    should(stubCreateFilterId.calledOnce).be.true();
+    should(stubCreateFilterId.calledWith('foo', 'bar', {})).be.true();
+    should(stubRegister.calledOnce).be.true();
+    should(stubRegister.calledWith('foobar', 'foo', 'bar', {})).be.true();
   });
 
   it('should initialize the hooks list properly', () => {
@@ -143,7 +134,7 @@ describe('#Testing index file', () => {
       probes: {
         foo: {
           type: 'monitor',
-          hooks: ['foo:bar']
+          hooks: ['foo:bar', 'data:beforePublish']
         },
         bar: {
           type: 'counter',
@@ -152,8 +143,13 @@ describe('#Testing index file', () => {
         },
         baz: {
           type: 'counter',
-          increasers: ['baz:qux'],
+          increasers: ['baz:qux', 'data:beforePublish'],
           decreasers: ['foo:bar']
+        },
+        qux: {
+          type: 'watcher',
+          index: 'foo',
+          collection: 'bar'
         }
       }
     }, fakeContext, false);
@@ -162,151 +158,10 @@ describe('#Testing index file', () => {
     should(plugin.hooks['foo:bar']).match(['monitor', 'counter']);
     should(plugin.hooks['bar:baz']).be.eql('counter');
     should(plugin.hooks['baz:qux']).be.eql('counter');
+    should(plugin.hooks['data:beforePublish'].sort()).be.eql(['counter', 'monitor', 'watcher']);
+    should(plugin.hooks['data:beforeCreate']).be.eql('watcher');
   });
-
-  it('should initialize the events mapping properly', () => {
-    plugin.init({
-      databases: ['foo'],
-      storageIndex: 'bar',
-      probes: {
-        foo: {
-          type: 'monitor',
-          hooks: ['foo:bar']
-        },
-        bar: {
-          type: 'counter',
-          increasers: ['bar:baz', 'foo:bar', 'foo:bar'],
-          decreasers: ['baz:qux']
-        },
-        baz: {
-          type: 'counter',
-          increasers: ['baz:qux', 'bar:baz'],
-          decreasers: ['foo:bar']
-        },
-        qux: {
-          type: 'monitor',
-          hooks: ['foo:bar', 'bar:baz', 'foo:bar']
-        }
-      }
-    }, fakeContext, false);
-
-    should(plugin.dummy).be.false();
-    should(plugin.eventMapping.monitor['foo:bar']).match(['foo', 'qux']);
-    should(plugin.eventMapping.monitor['bar:baz']).match(['qux']);
-    should(plugin.eventMapping.counter.increasers['bar:baz']).match(['bar', 'baz']);
-    should(plugin.eventMapping.counter.increasers['foo:bar']).match(['bar']);
-    should(plugin.eventMapping.counter.increasers['baz:qux']).match(['baz']);
-    should(plugin.eventMapping.counter.decreasers['baz:qux']).match(['bar']);
-    should(plugin.eventMapping.counter.decreasers['foo:bar']).match(['baz']);
-  });
-
-  it('should initialize the measures object properly', () => {
-    plugin.init({
-      databases: ['foo'],
-      storageIndex: 'bar',
-      probes: {
-        foo: {
-          type: 'monitor',
-          hooks: ['foo:bar']
-        },
-        bar: {
-          type: 'counter',
-          increasers: ['bar:baz', 'foo:bar', 'foo:bar'],
-          decreasers: ['baz:qux']
-        },
-        baz: {
-          type: 'counter',
-          increasers: ['baz:qux', 'bar:baz'],
-          decreasers: ['foo:bar']
-        },
-        qux: {
-          type: 'monitor',
-          hooks: ['foo:bar', 'bar:baz', 'foo:bar']
-        }
-      }
-    }, fakeContext, false);
-
-    should(plugin.dummy).be.false();
-    should(plugin.measures.foo).match({'foo:bar': 0});
-    should(plugin.measures.bar).match({count: 0});
-    should(plugin.measures.baz).match({count: 0});
-    should(plugin.measures.qux).match({'foo:bar': 0, 'bar:baz': 0});
-  });
-
-  it('should save immediately a measure if no interval is set in the probe', (done) => {
-    plugin.init({
-      databases: ['foo'],
-      storageIndex: 'bar',
-      probes: {
-        foo: {
-          type: 'monitor',
-          hooks: ['foo:bar']
-        }
-      }
-    }, fakeContext);
-
-    sinon.stub(plugin.client, 'create').resolves();
-    plugin.monitor('foo:bar');
-    should(plugin.client.create.calledOnce).be.true();
-    should(plugin.client.create.calledWithMatch({
-      index: 'bar',
-      type: 'foo',
-      body: {
-        'foo:bar': 1
-      }
-    })).be.true();
-
-    plugin.client.create.restore();
-
-    // measure should have been reset
-    setTimeout(() => {
-      should(plugin.measures.foo['foo:bar']).be.eql(0);
-      done();
-    }, 0);
-  });
-
-  it('should only save the measure after the given interval', (done) => {
-    var 
-      clock = lolex.install(),
-      pluginConfig = {
-        databases: ['foo'],
-        storageIndex: 'bar',
-        probes: {
-          foo: {
-            type: 'monitor',
-            hooks: ['foo:bar'],
-            interval: '1s'
-          }
-        }
-      };
-
-    plugin.init(pluginConfig, fakeContext)
-      .then(() => {
-        sinon.stub(plugin.client, 'create').resolves();
-        
-        plugin.monitor('foo:bar');
-        should(plugin.client.create.called).be.false();
-
-        clock.next();
-        should(plugin.client.create.calledOnce).be.true();
-        should(plugin.client.create.calledWithMatch({
-          index: 'bar',
-          type: 'foo',
-          body: {
-            'foo:bar': 1
-          }
-        })).be.true();
-
-        clock.uninstall();
-        plugin.client.create.restore();
-        setTimeout(() => {
-          should(plugin.measures.foo['foo:bar']).be.eql(0);
-          done();
-        }, 0);
-      })
-      .catch(err => done(err));
-  });
-
+  
   it('should not reset the measure if an error during saving occurs', (done) => {
     var
       clock = lolex.install(),
@@ -343,128 +198,6 @@ describe('#Testing index file', () => {
         plugin.client.create.restore();
         setTimeout(() => {
           should(plugin.measures.foo['foo:bar']).be.eql(1);
-          done();
-        }, 0);
-      })
-      .catch(err => done(err));
-  });
-
-  it('should save immediately an increasing counter if no interval is set', (done) => {
-    plugin.init({
-      databases: ['foo'],
-      storageIndex: 'bar',
-      probes: {
-        foo: {
-          type: 'counter',
-          increasers: ['foo:bar', 'bar:baz'],
-          decreasers: ['baz:qux', 'qux:foo']
-        }
-      }
-    }, fakeContext);
-
-    sinon.stub(plugin.client, 'create').resolves();
-    plugin.counter('foo:bar');
-    should(plugin.client.create.calledOnce).be.true();
-    should(plugin.client.create.calledWithMatch({
-      index: 'bar',
-      type: 'foo',
-      body: {
-        'count': 1
-      }
-    })).be.true();
-
-    plugin.client.create.restore();
-
-    // measure should never be reset
-    setTimeout(() => {
-      should(plugin.measures.foo.count).be.eql(1);
-      done();
-    }, 0);
-  });
-
-  it('should save immediately an decreasing counter if no interval is set', (done) => {
-    plugin.init({
-      databases: ['foo'],
-      storageIndex: 'bar',
-      probes: {
-        foo: {
-          type: 'counter',
-          increasers: ['foo:bar', 'bar:baz'],
-          decreasers: ['baz:qux', 'qux:foo']
-        }
-      }
-    }, fakeContext);
-
-    sinon.stub(plugin.client, 'create').resolves();
-    plugin.counter('qux:foo');
-    should(plugin.client.create.calledOnce).be.true();
-    should(plugin.client.create.calledWithMatch({
-      index: 'bar',
-      type: 'foo',
-      body: {
-        'count': -1
-      }
-    })).be.true();
-
-    plugin.counter('baz:qux');
-    should(plugin.client.create.calledTwice).be.true();
-    should(plugin.client.create.calledWithMatch({
-      index: 'bar',
-      type: 'foo',
-      body: {
-        'count': -2
-      }
-    })).be.true();
-
-    plugin.client.create.restore();
-
-    // measure should never be reset
-    setTimeout(() => {
-      should(plugin.measures.foo.count).be.eql(-2);
-      done();
-    }, 0);
-  });
-
-  it('should only save the counter after the given interval', (done) => {
-    var
-      clock = lolex.install(),
-      pluginConfig = {
-        databases: ['foo'],
-        storageIndex: 'bar',
-        probes: {
-          foo: {
-            type: 'counter',
-            increasers: ['foo:bar', 'bar:baz'],
-            decreasers: ['baz:qux', 'qux:foo'],
-            interval: 1000
-          }
-        }
-      };
-
-    plugin.init(pluginConfig, fakeContext)
-      .then(() => {
-        sinon.stub(plugin.client, 'create').resolves();
-
-        // 2 increasers + 1 decreaser => count must be equal to 1
-        plugin.counter('foo:bar');
-        plugin.counter('bar:baz');
-        plugin.counter('qux:foo');
-        should(plugin.client.create.called).be.false();
-
-        clock.next();
-        should(plugin.client.create.calledOnce).be.true();
-        should(plugin.client.create.calledWithMatch({
-          index: 'bar',
-          type: 'foo',
-          body: {
-            count: 1
-          }
-        })).be.true();
-
-        clock.uninstall();
-        plugin.client.create.restore();
-        setTimeout(() => {
-          should(plugin.measures.foo.count).be.eql(1);
           done();
         }, 0);
       })
