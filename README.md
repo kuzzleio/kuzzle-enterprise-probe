@@ -234,7 +234,7 @@ Filters can be added to focus on particular documents and/or messages, and a pro
 
 Each measure is independent from each other, meaning each watcher probe is reset at the start of a new measurement.
 
-:warning: Current limitation: due to the way Kuzzle handle documents, only newly created documents can be watched. This will be fixed in the future.
+:warning: Current limitation: due to the way Kuzzle handle documents, only newly created documents can be watched with a `create` or a `createOrReplace` action. This will be fixed in the future.
 
 ### Configuration
 
