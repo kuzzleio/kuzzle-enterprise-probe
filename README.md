@@ -24,7 +24,11 @@
     - [Measure document (first probe example)](#measure-document-first-probe-example)
     - [Measure document (second probe example)](#measure-document-second-probe-example)
     - [Adding a `watcher` probe](#adding-a-watcher-probe)
-
+  - [`sampler` probes](#sampler-probes)
+    - [Description](#description-3)
+    - [Configuration](#configuration-3)
+    - [Measure document](#measure-document-2)
+    - [Adding a `sampler` probe](#adding-a-sampler-probe)
 
 # About
 
