@@ -40,7 +40,8 @@
     "elasticsearch": "^11.0.1",
     "lodash": "^4.12.0",
     "ms": "^0.7.1",
-    "q": "^1.4.1"
+    "q": "^1.4.1",
+    "random-js": "^1.0.8"
   },
   "devDependencies": {
     "eslint": "^2.9.0",
