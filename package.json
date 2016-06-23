@@ -39,6 +39,7 @@
   "dependencies": {
     "elasticsearch": "^11.0.1",
     "lodash": "^4.12.0",
+    "long-timeout": "^0.1.1",
     "ms": "^0.7.1",
     "q": "^1.4.1",
     "random-js": "^1.0.8"
