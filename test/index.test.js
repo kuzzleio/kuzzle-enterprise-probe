@@ -127,6 +127,22 @@ describe('#Testing index file', () => {
     should(stubRegister.calledWith('foobar', 'foo', 'bar', {})).be.true();
   });
 
+  it('should ignore probes without any type defined', () => {
+    plugin.init({
+      databases: ['foo'],
+      storageIndex: 'bar',
+      probes: {
+        badProbe: {
+          index: 'foo',
+          collection: 'bar',
+          hooks: ['foo:bar', 'data:beforePublish']
+        }
+      }
+    }, fakeContext, false);
+
+    should(plugin.probes.badProbe).be.undefined();
+  });
+
   it('should initialize the hooks list properly', () => {
     plugin.init({
       databases: ['foo'],

@@ -24,7 +24,11 @@
     - [Measure document (first probe example)](#measure-document-first-probe-example)
     - [Measure document (second probe example)](#measure-document-second-probe-example)
     - [Adding a `watcher` probe](#adding-a-watcher-probe)
-
+  - [`sampler` probes](#sampler-probes)
+    - [Description](#description-3)
+    - [Configuration](#configuration-3)
+    - [Measure document](#measure-document-2)
+    - [Adding a `sampler` probe](#adding-a-sampler-probe)
 
 # About
 
@@ -339,6 +343,111 @@ kuzzle plugins --set '{
     "probe_watcher_1": {
       "index": "some index",
       "collection": "some data collection",
+      "filter": {},
+      "collects": [
+        "documentField",
+        "a.nestedAttribute.using.JsonPath"
+      ],
+      "interval": "10 minutes"
+    }
+  }
+}' kuzzle-enterprise-probe
+```
+
+## `sampler` probes
+
+### Description
+
+Sampler probes are similar to [watcher probes](#watcher-probes), but instead of collecting every document/message matching the configured probe, this probe retrieves only a statistical sample of documents/messages.  
+The sampler probe guarantees a statistically evenly distributed sample, meaning all documents and messages have the same probability to enter the sample.  
+
+The "sampleSize", "collects" and "interval" parameters are required.  
+The sample size should be large enough and the duration long enough for the sample to have meaning statistically speaking.
+
+Filters can be added to focus on particular documents and/or messages, and a probe can only monitor one index-collection pair at a time                            
+
+Each measure is independent from each other, meaning each watcher probe is reset at the start of a new measurement.
+
+:warning: Current limitation: due to the way Kuzzle handle documents, only newly created documents can be watched with a `create` or a `createOrReplace` action. This will be fixed in the future.
+
+### Configuration
+
+Probe configuration examples:
+
+```json
+{
+  "probes": {
+    "probe_sampler": {
+      "type": "sampler",
+      "index": "some index",
+      "collection": "some data collection",
+      "sampleSize": 1234,
+      "filter": {},
+      "collects": [
+        "documentField",
+        "a.nestedAttribute.using.JsonPath"
+      ],
+      "interval": "1 hour"
+    }
+  }
+}
+```
+
+Parameters rundown:
+
+- `probe_sampler` is the probe unique name, and also the data collection in which the measurements are stored
+- `type: sampler` tells the plugin that these probes are sampler probes
+- `sampleSize` is the size of each document/message sample
+- `interval` configures the measurement save interval. It must be set with a "duration": a string in human readable format, using the [ms conversion library](https://www.npmjs.com/package/ms)
+- `collects` configures the probe to collect document/message data. This parameter can be:                        
+  - a wildcard (`*`): the entire document/message will be collected         
+  - an array listing the document/message attributes to collect, as JSON paths
+- `filter` configures what documents/messages will be watched:
+  - if empty, undefined or null, all documents/messages sent to the corresponding index-collection pair will be collected
+  - otherwise, a filter can be set, using [Kuzzle DSL](http://kuzzle.io/guide/#filtering-syntax)
+
+### Measure document
+
+The probe `probe_sampler` will act like this: all documents and messages sent to index `some index` and collection `some data collection` are examined. If, and only if, a document/message matches the provided filter, then the probe will calculate a probability for it to enter the current sample.
+
+Every 1 hour, all sampled documents and messages will be saved in the database.  
+There will be 1 document written per document/message collected, and these written documents will contain:
+- the measurement timestamp
+- the configured attributes to collect (in the example, only 2 attributes will be collected)
+- if provided, the document unique identifier
+
+The measure document will look like this:
+
+```json
+{
+  "content": {
+    "_id": "will only appear if provided",
+    "documentField": "collected 'documentField' value",
+    "a": {
+      "nestedAttribute": {
+        "using": {
+          "JsonPath": "collected value"
+        }
+      }
+    }
+  },
+  "timestamp": 123456789
+}
+```
+
+The `timestamp` field is automatically added, and mark the end of a measurement. It's encoded as the number of milliseconds since Epoch.
+
+### Adding a `sampler` probe
+
+Command-line interface example:
+
+```shell
+kuzzle plugins --set '{
+  "probes": {
+    "probe_sampler": {
+      "index": "some index",
+      "collection": "some data collection",
+      "sampleSize": 1234,
       "filter": {},
       "collects": [
         "documentField",
