@@ -18,6 +18,13 @@
     - [Configuration](#configuration-1)
     - [Measure document](#measure-document-1)
     - [Adding a `counter` probe](#adding-a-counter-probe)
+  - [`watcher` probes](#watcher-probes)
+    - [Description](#description-2)
+    - [Configuration](#configuration-2)
+    - [Measure document (first probe example)](#measure-document-first-probe-example)
+    - [Measure document (second probe example)](#measure-document-second-probe-example)
+    - [Adding a `watcher` probe](#adding-a-watcher-probe)
+
 
 # About
 
@@ -213,6 +220,131 @@ kuzzle plugins --set '{
       "interval": "1h",
       "increasers": ["list:of", "counterIncreasing:events"],
       "decreasers": ["anotherlist:of", "counterDecreasing:events"]
+    }
+  }
+}' kuzzle-enterprise-probe
+```
+
+## `watcher` probes
+
+### Description
+
+Watch documents and messages activity, counting them or retrieving part of their content.  
+Filters can be added to focus on particular documents and/or messages, and a probe can only monitor one index-collection pair at a time                            
+
+Each measure is independent from each other, meaning each watcher probe is reset at the start of a new measurement.
+
+:warning: Current limitation: due to the way Kuzzle handle documents, only newly created documents can be watched with a `create` or a `createOrReplace` action. This will be fixed in the future.
+
+### Configuration
+
+Probe configuration examples:
+
+```json
+{
+  "probes": {
+    "probe_watcher_1": {
+      "type": "watcher",
+      "index": "some index",
+      "collection": "some data collection",
+      "filter": {},
+      "collects": [
+        "documentField",
+        "a.nestedAttribute.using.JsonPath"
+      ],
+      "interval": "10 minutes"
+    },
+    "probe_watcher_2": {
+      "type": "watcher",
+      "index": "some index",
+      "collection": "some data collection",
+      "filter": {
+        "term": {
+          "uses": "KuzzleDSL"
+        }
+      },
+      "interval": "1h"
+    }
+  }
+}
+```
+
+Parameters rundown:
+
+- `probe_watcher_1` and `probe_watcher_2` are the probe unique names, and also the data collections in which the measurements are stored
+- `type: watcher` tells the plugin that these probes are watcher probes
+- `interval` configures the measurement save interval. The following formats are accepted:
+  - `"none"`: no interval, each listened event will create a new measure document
+  - `"duration"`: a string in human readable format, using the [ms conversion library](https://www.npmjs.com/package/ms)
+- `collects` configures the probe to collect document/message data. This parameter can be:
+  - empty, null or undefined: no data will be collected, only the number of matched documents/messages will be reported                               
+  - a wildcard (`*`): the entire document/message will be collected         
+  - an array listing the document/message attributes to collect, as JSON paths
+- `filter` configures what documents/messages will be watched:
+  - if empty, undefined or null, all documents/messages sent to the corresponding index-collection pair will be collected
+  - otherwise, a filter can be set, using [Kuzzle DSL](http://kuzzle.io/guide/#filtering-syntax)
+
+### Measure document (first probe example)
+
+The probe `probe_watcher_1` will act like this: every 10 minutes, all documents and messages sent to index `some index` and collection `some data collection` will be saved (there is no filter set).
+
+There will be 1 document written per document/message collected, and these written documents will contain:
+- the measurement timestamp
+- the configured attributes to collect (in the example, only 2 attributes will be collected)
+- if provided, the document unique identifier
+
+The measure document will look like this:
+
+```json
+{
+  "content": {
+    "_id": "will only appear if provided",
+    "documentField": "collected 'documentField' value",
+    "a": {
+      "nestedAttribute": {
+        "using": {
+          "JsonPath": "collected value"
+        }
+      }
+    }
+  },
+  "timestamp": 123456789
+}
+```
+
+The `timestamp` field is automatically added, and mark the end of a measurement. It's encoded as the number of milliseconds since Epoch.
+
+### Measure document (second probe example)
+
+The probe `probe_watcher_2` will act like this: it watches documents and messages sent to index `some index` and collection `some data collection`. If, and only if, a document/message matches the provided filter, then the probe will increment a document counter (there is no attribute to collect).
+
+Then, every 1 hour, a new measure document will be written, looking like this:
+
+```json
+{
+  "count": 1234,
+  "timestamp": 123456789
+}
+```
+
+The `timestamp` field is automatically added, and mark the end of a measurement. It's encoded as the number of milliseconds since Epoch.
+
+### Adding a `watcher` probe
+
+Command-line interface example:
+
+```shell
+kuzzle plugins --set '{
+  "probes": {
+    "probe_watcher_1": {
+      "index": "some index",
+      "collection": "some data collection",
+      "filter": {},
+      "collects": [
+        "documentField",
+        "a.nestedAttribute.using.JsonPath"
+      ],
+      "interval": "10 minutes"
     }
   }
 }' kuzzle-enterprise-probe
