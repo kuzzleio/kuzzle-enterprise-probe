@@ -265,7 +265,7 @@ Probe configuration examples:
               "properties": {
                 "using": {
                   "properties" : {
-                    "JsonPath": {"type": "string}
+                    "JsonPath": {"type": "string"}
                   }
                 }
               }
