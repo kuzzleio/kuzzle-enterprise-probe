@@ -272,7 +272,7 @@ Probe configuration examples:
             }
           }
         }
-      }
+      },
       "interval": "10 minutes"
     },
     "probe_watcher_2": {
@@ -380,14 +380,14 @@ kuzzle plugins --set '{
               "properties": {
                 "using": {
                   "properties" : {
-                    "JsonPath": {"type": "string}
+                    "JsonPath": {"type": "string"}
                   }
                 }
               }
             }
           }
         }
-      }
+      },
       "interval": "10 minutes"
     }
   }
