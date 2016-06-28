@@ -1,7 +1,7 @@
 var
   should = require('should'),
   sinon = require('sinon'),
-  proxyquire = require('proxyquire').noPreserveCache(),
+  proxyquire = require('proxyquire'),
   lolex = require('lolex'),
   StubContext = require('./stubs/context.stub'),
   StubElasticsearch = require('./stubs/elasticsearch.stub'),
@@ -16,7 +16,7 @@ describe('#Testing index file', () => {
     esStub,
     sandbox,
     fakeContext,
-    setIntervalStub;
+    setIntervalSpy;
 
   before(() => {
     sandbox = sinon.sandbox.create();
@@ -25,7 +25,7 @@ describe('#Testing index file', () => {
   beforeEach(() => {
     sandbox.reset();
 
-    setIntervalStub = sandbox.spy(longTimeout, 'setInterval');
+    setIntervalSpy = sandbox.spy(longTimeout, 'setInterval');
     esStub = new StubElasticsearch();
     Plugin = proxyquire('../lib/index', {
       'elasticsearch': {
@@ -40,7 +40,10 @@ describe('#Testing index file', () => {
   });
 
   afterEach(() => {
-    setIntervalStub.restore();
+    setIntervalSpy.returnValues.forEach(value => {
+      longTimeout.clearInterval(value);
+    });
+    setIntervalSpy.restore();
   });
 
   it('should throw an error if no config is provided', () => {
@@ -247,8 +250,15 @@ describe('#Testing index file', () => {
       }
     }, fakeContext);
 
+    sinon.stub(plugin.client, 'create').resolves({});
+    sinon.stub(plugin.client, 'bulk').resolves({});
+
     setTimeout(() => {
-      should(setIntervalStub.calledOnce).be.true();
+      should(setIntervalSpy.calledOnce).be.true();
+
+      plugin.client.create.reset();
+      plugin.client.bulk.reset();
+
       done();
     }, 20);
   });
@@ -271,7 +281,7 @@ describe('#Testing index file', () => {
     plugin.client.indices.putMapping.rejects(new Error('an Error'));
 
     setTimeout(() => {
-      should(setIntervalStub.callCount).be.eql(0);
+      should(setIntervalSpy.callCount).be.eql(0);
       done();
     }, 20);
   });

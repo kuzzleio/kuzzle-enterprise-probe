@@ -1,9 +1,10 @@
 var
   should = require('should'),
   sinon = require('sinon'),
-  proxyquire = require('proxyquire').noPreserveCache(),
+  proxyquire = require('proxyquire'),
   StubContext = require('./stubs/context.stub'),
-  StubElasticsearch = require('./stubs/elasticsearch.stub');
+  StubElasticsearch = require('./stubs/elasticsearch.stub'),
+  longTimeout = require('long-timeout');
 
 require('sinon-as-promised');
 
@@ -12,18 +13,29 @@ describe('#watcher probes', () => {
     Plugin,
     plugin,
     esStub,
-    fakeContext;
+    fakeContext,
+    setIntervalSpy;
 
   beforeEach(() => {
+    setIntervalSpy = sinon.spy(longTimeout, 'setInterval');
     esStub = new StubElasticsearch();
     Plugin = proxyquire('../lib/index', {
       'elasticsearch': {
         Client: esStub
-      }
+      },
+      'long-timeout': longTimeout
     });
 
     plugin = new Plugin();
+    esStub.reset();
     fakeContext = new StubContext();
+  });
+
+  afterEach(() => {
+    setIntervalSpy.returnValues.forEach(value => {
+      longTimeout.clearInterval(value);
+    });
+    setIntervalSpy.restore();
   });
 
   it('should initialize probes according to their configuration', () => {
@@ -412,6 +424,9 @@ describe('#watcher probes', () => {
       }
     }, fakeContext);
 
+    sinon.stub(plugin.client, 'bulk').resolves();
+    sinon.stub(plugin.client, 'create').resolves();
+
     plugin.client.indices.getMapping.resolves({
       storageIndex: {
         mappings: {
@@ -422,6 +437,10 @@ describe('#watcher probes', () => {
 
     setTimeout(() => {
       should(plugin.client.indices.putMapping.callCount).be.eql(0);
+
+      plugin.client.bulk.restore();
+      plugin.client.create.restore();
+
       done();
     }, 20);
   });

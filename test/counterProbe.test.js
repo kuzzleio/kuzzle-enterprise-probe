@@ -1,10 +1,11 @@
 var
   should = require('should'),
   sinon = require('sinon'),
-  proxyquire = require('proxyquire').noPreserveCache(),
+  proxyquire = require('proxyquire'),
   lolex = require('lolex'),
   StubContext = require('./stubs/context.stub'),
-  StubElasticsearch = require('./stubs/elasticsearch.stub');
+  StubElasticsearch = require('./stubs/elasticsearch.stub'),
+  longTimeout = require('long-timeout');
 
 require('sinon-as-promised');
 
@@ -13,18 +14,29 @@ describe('#counter probes', () => {
     Plugin,
     plugin,
     esStub,
-    fakeContext;
+    fakeContext,
+    setIntervalSpy;
 
   beforeEach(() => {
+    setIntervalSpy = sinon.spy(longTimeout, 'setInterval');
     esStub = new StubElasticsearch();
     Plugin = proxyquire('../lib/index', {
       'elasticsearch': {
         Client: esStub
-      }
+      },
+      'long-timeout': longTimeout
     });
 
     plugin = new Plugin();
+    esStub.reset();
     fakeContext = new StubContext();
+  });
+
+  afterEach(() => {
+    setIntervalSpy.returnValues.forEach(value => {
+      longTimeout.clearInterval(value);
+    });
+    setIntervalSpy.restore();
   });
 
   it('should initialize probes according to their configuration', () => {
