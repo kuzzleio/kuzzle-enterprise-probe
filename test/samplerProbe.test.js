@@ -1,20 +1,20 @@
 var
   should = require('should'),
   sinon = require('sinon'),
-  proxyquire = require('proxyquire'),
+  proxyquire = require('proxyquire').noPreserveCache(),
   StubContext = require('./stubs/context.stub'),
   StubElasticsearch = require('./stubs/elasticsearch.stub');
 
 require('sinon-as-promised');
 
-describe('#watcher probes', () => {
+describe('#sampler probes', () => {
   var
     Plugin,
     plugin,
     esStub,
     fakeContext;
 
-  before(() => {
+  beforeEach(() => {
     esStub = new StubElasticsearch();
 
     Plugin = proxyquire('../lib/index', {
@@ -22,11 +22,8 @@ describe('#watcher probes', () => {
         Client: esStub
       }
     });
-  });
 
-  beforeEach(() => {
     plugin = new Plugin();
-    esStub.reset();
     fakeContext = new StubContext();
   });
 
@@ -269,6 +266,85 @@ describe('#watcher probes', () => {
         should(plugin.measures.fooprobe.content).be.empty();
         done();
       }, 20);
+    }, 20);
+  });
+
+  it('should create a collection with timestamp mapping if no mapping is provided and collects is not empty', (done) => {
+    plugin.init({
+      databases: ['foo'],
+      storageIndex: 'storageIndex',
+      probes: {
+        fooprobe: {
+          type: 'sampler',
+          index: 'foo',
+          collection: 'bar',
+          sampleSize: 3,
+          collects: ['foobar', 'foo.baz', 'foo.qux', 'barfoo'],
+          interval: '1ms'
+        }
+      }
+    }, fakeContext);
+
+
+    setTimeout(() => {
+      should(plugin.client.indices.putMapping.calledOnce).be.true();
+      should(plugin.client.indices.putMapping.firstCall.args[0]).match({
+        index: 'storageIndex',
+        type: 'fooprobe',
+        updateAllTypes: false,
+        body: {
+          properties: {
+            timestamp: {
+              type: 'date',
+              format: 'epoch_millis'
+            }
+          }
+        }
+      });
+
+      done();
+    }, 20);
+  });
+
+  it('should create a collection with timestamp and provided mapping if a mapping is provided', (done) => {
+    plugin.init({
+      databases: ['foo'],
+      storageIndex: 'storageIndex',
+      probes: {
+        fooprobe: {
+          type: 'sampler',
+          index: 'foo',
+          collection: 'bar',
+          sampleSize: 3,
+          collects: ['foobar', 'foo.baz', 'foo.qux', 'barfoo'],
+          mapping: {foo: 'bar'},
+          interval: '1ms'
+        }
+      }
+    }, fakeContext);
+
+
+    setTimeout(() => {
+      should(plugin.client.indices.putMapping.calledOnce).be.true();
+      should(plugin.client.indices.putMapping.firstCall.args[0]).match({
+        index: 'storageIndex',
+        type: 'fooprobe',
+        updateAllTypes: false,
+        body: {
+          properties: {
+            timestamp: {
+              type: 'date',
+              format: 'epoch_millis'
+            },
+            content: {
+              properties: {
+                foo: 'bar'
+              }
+            }
+          }
+        }
+      });
+      done();
     }, 20);
   });
 });

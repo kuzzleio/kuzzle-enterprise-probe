@@ -1,7 +1,7 @@
 var
   should = require('should'),
   sinon = require('sinon'),
-  proxyquire = require('proxyquire'),
+  proxyquire = require('proxyquire').noPreserveCache(),
   lolex = require('lolex'),
   StubContext = require('./stubs/context.stub'),
   StubElasticsearch = require('./stubs/elasticsearch.stub');
@@ -15,7 +15,7 @@ describe('#monitor probes', () => {
     esStub,
     fakeContext;
 
-  before(() => {
+  beforeEach(() => {
     esStub = new StubElasticsearch();
 
     Plugin = proxyquire('../lib/index', {
@@ -23,11 +23,8 @@ describe('#monitor probes', () => {
         Client: esStub
       }
     });
-  });
 
-  beforeEach(() => {
     plugin = new Plugin();
-    esStub.reset();
     fakeContext = new StubContext();
   });
 
@@ -162,10 +159,54 @@ describe('#monitor probes', () => {
         clock.uninstall();
         plugin.client.create.restore();
         setTimeout(() => {
-          should(plugin.measures.foo['foo:bar']).be.eql(0);
+          try {
+            should(plugin.measures.foo['foo:bar']).be.eql(0);
+          } catch (e) {
+            return done(e);
+          }
+
           done();
         }, 0);
       })
       .catch(err => done(err));
+  });
+
+  it('should create a collection with timestamp and event fields mapping', (done) => {
+    plugin.init({
+      databases: ['foo'],
+      storageIndex: 'storageIndex',
+      probes: {
+        fooprobe: {
+          type: 'monitor',
+          hooks: ['foo:bar', 'bar:foo'],
+          interval: 1000
+        }
+      }
+    }, fakeContext);
+
+    setTimeout(() => {
+      should(plugin.client.indices.putMapping.calledOnce).be.true();
+      should(plugin.client.indices.putMapping.firstCall.args[0]).match({
+        index: 'storageIndex',
+        type: 'fooprobe',
+        updateAllTypes: false,
+        body: {
+          properties: {
+            timestamp: {
+              type: 'date',
+              format: 'epoch_millis'
+            },
+            'foo:bar': {
+              type: 'integer'
+            },
+            'bar:foo': {
+              type: 'integer'
+            }
+          }
+        }
+      });
+
+      done();
+    }, 20);
   });
 });

@@ -1,7 +1,7 @@
 var
   should = require('should'),
   sinon = require('sinon'),
-  proxyquire = require('proxyquire'),
+  proxyquire = require('proxyquire').noPreserveCache(),
   lolex = require('lolex'),
   StubContext = require('./stubs/context.stub'),
   StubElasticsearch = require('./stubs/elasticsearch.stub');
@@ -15,19 +15,15 @@ describe('#counter probes', () => {
     esStub,
     fakeContext;
 
-  before(() => {
+  beforeEach(() => {
     esStub = new StubElasticsearch();
-
     Plugin = proxyquire('../lib/index', {
       'elasticsearch': {
         Client: esStub
       }
     });
-  });
 
-  beforeEach(() => {
     plugin = new Plugin();
-    esStub.reset();
     fakeContext = new StubContext();
   });
 
@@ -224,5 +220,42 @@ describe('#counter probes', () => {
         }, 0);
       })
       .catch(err => done(err));
+  });
+
+  it('should create a collection with timestamp and count mapping', (done) => {
+    plugin.init({
+      databases: ['foo'],
+      storageIndex: 'storageIndex',
+      probes: {
+        fooprobe: {
+          type: 'counter',
+          increasers: ['foo:bar', 'bar:baz'],
+          decreasers: ['baz:qux', 'qux:foo'],
+          interval: 1000
+        }
+      }
+    }, fakeContext);
+
+    setTimeout(() => {
+      should(plugin.client.indices.putMapping.calledOnce).be.true();
+      should(plugin.client.indices.putMapping.firstCall.args[0]).match({
+        index: 'storageIndex',
+        type: 'fooprobe',
+        updateAllTypes: false,
+        body: {
+          properties: {
+            timestamp: {
+              type: 'date',
+              format: 'epoch_millis'
+            },
+            count: {
+              type: 'integer'
+            }
+          }
+        }
+      });
+
+      done();
+    }, 20);
   });
 });
