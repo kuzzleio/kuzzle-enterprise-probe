@@ -248,14 +248,14 @@ describe('#watcher probes', () => {
       should(plugin.client.bulk.calledOnce).be.true();
       should(plugin.client.bulk.firstCall.args[0].body.length).be.eql(6); // 3 documents + 3 bulk headers
       should(plugin.client.bulk.firstCall.args[0].body[1]).match({
-          content: {
-            _id: document._id,
-            foobar: 'foobar',
-            foo: {
-              baz: 'baz',
-              qux: 'qux'
-            },
-            barfoo: 'barfoo'}
+        content: {
+          _id: document._id,
+          foobar: 'foobar',
+          foo: {
+            baz: 'baz',
+            qux: 'qux'
+          },
+          barfoo: 'barfoo'}
       });
 
       should(plugin.client.bulk.firstCall.args[0].body[1].content.quxbar).be.undefined();

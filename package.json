@@ -8,7 +8,9 @@
     "url": "git+https://github.com/kuzzleio/kuzzle-enterprise-probe.git"
   },
   "scripts": {
-    "test": "grunt && istanbul cover _mocha"
+    "unit-testing": "istanbul cover _mocha",
+    "test": "npm run --silent lint && npm run unit-testing --coverage",
+    "lint": "eslint --max-warnings=0 ./lib ./test"
   },
   "keywords": [
     "kuzzle",
@@ -46,11 +48,7 @@
   },
   "devDependencies": {
     "eslint": "^2.9.0",
-    "grunt": "^1.0.1",
-    "grunt-contrib-jshint": "^1.0.0",
-    "gruntify-eslint": "^2.0.0",
     "istanbul": "^0.4.3",
-    "jslint": "^0.9.6",
     "lolex": "^1.5.0",
     "mocha": "^2.4.5",
     "proxyquire": "^1.7.9",
