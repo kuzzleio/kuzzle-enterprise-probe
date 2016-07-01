@@ -3,31 +3,39 @@ var
   sinon = require('sinon'),
   proxyquire = require('proxyquire'),
   StubContext = require('./stubs/context.stub'),
-  StubElasticsearch = require('./stubs/elasticsearch.stub');
+  StubElasticsearch = require('./stubs/elasticsearch.stub'),
+  longTimeout = require('long-timeout');
 
 require('sinon-as-promised');
 
-describe('#watcher probes', () => {
+describe('#sampler probes', () => {
   var
     Plugin,
     plugin,
     esStub,
-    fakeContext;
+    fakeContext,
+    setIntervalSpy;
 
-  before(() => {
+  beforeEach(() => {
+    setIntervalSpy = sinon.spy(longTimeout, 'setInterval');
     esStub = new StubElasticsearch();
-
     Plugin = proxyquire('../lib/index', {
       'elasticsearch': {
         Client: esStub
-      }
+      },
+      'long-timeout': longTimeout
     });
-  });
 
-  beforeEach(() => {
     plugin = new Plugin();
     esStub.reset();
     fakeContext = new StubContext();
+  });
+
+  afterEach(() => {
+    setIntervalSpy.returnValues.forEach(value => {
+      longTimeout.clearInterval(value);
+    });
+    setIntervalSpy.restore();
   });
 
   it('should initialize probes according to their configuration', () => {
@@ -248,14 +256,14 @@ describe('#watcher probes', () => {
       should(plugin.client.bulk.calledOnce).be.true();
       should(plugin.client.bulk.firstCall.args[0].body.length).be.eql(6); // 3 documents + 3 bulk headers
       should(plugin.client.bulk.firstCall.args[0].body[1]).match({
-          content: {
-            _id: document._id,
-            foobar: 'foobar',
-            foo: {
-              baz: 'baz',
-              qux: 'qux'
-            },
-            barfoo: 'barfoo'}
+        content: {
+          _id: document._id,
+          foobar: 'foobar',
+          foo: {
+            baz: 'baz',
+            qux: 'qux'
+          },
+          barfoo: 'barfoo'}
       });
 
       should(plugin.client.bulk.firstCall.args[0].body[1].content.quxbar).be.undefined();
@@ -269,6 +277,85 @@ describe('#watcher probes', () => {
         should(plugin.measures.fooprobe.content).be.empty();
         done();
       }, 20);
+    }, 20);
+  });
+
+  it('should create a collection with timestamp mapping if no mapping is provided and collects is not empty', (done) => {
+    plugin.init({
+      databases: ['foo'],
+      storageIndex: 'storageIndex',
+      probes: {
+        fooprobe: {
+          type: 'sampler',
+          index: 'foo',
+          collection: 'bar',
+          sampleSize: 3,
+          collects: ['foobar', 'foo.baz', 'foo.qux', 'barfoo'],
+          interval: '1ms'
+        }
+      }
+    }, fakeContext);
+
+
+    setTimeout(() => {
+      should(plugin.client.indices.putMapping.calledOnce).be.true();
+      should(plugin.client.indices.putMapping.firstCall.args[0]).match({
+        index: 'storageIndex',
+        type: 'fooprobe',
+        updateAllTypes: false,
+        body: {
+          properties: {
+            timestamp: {
+              type: 'date',
+              format: 'epoch_millis'
+            }
+          }
+        }
+      });
+
+      done();
+    }, 20);
+  });
+
+  it('should create a collection with timestamp and provided mapping if a mapping is provided', (done) => {
+    plugin.init({
+      databases: ['foo'],
+      storageIndex: 'storageIndex',
+      probes: {
+        fooprobe: {
+          type: 'sampler',
+          index: 'foo',
+          collection: 'bar',
+          sampleSize: 3,
+          collects: ['foobar', 'foo.baz', 'foo.qux', 'barfoo'],
+          mapping: {foo: 'bar'},
+          interval: '1ms'
+        }
+      }
+    }, fakeContext);
+
+
+    setTimeout(() => {
+      should(plugin.client.indices.putMapping.calledOnce).be.true();
+      should(plugin.client.indices.putMapping.firstCall.args[0]).match({
+        index: 'storageIndex',
+        type: 'fooprobe',
+        updateAllTypes: false,
+        body: {
+          properties: {
+            timestamp: {
+              type: 'date',
+              format: 'epoch_millis'
+            },
+            content: {
+              properties: {
+                foo: 'bar'
+              }
+            }
+          }
+        }
+      });
+      done();
     }, 20);
   });
 });

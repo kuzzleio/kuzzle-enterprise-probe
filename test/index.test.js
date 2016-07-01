@@ -4,7 +4,8 @@ var
   proxyquire = require('proxyquire'),
   lolex = require('lolex'),
   StubContext = require('./stubs/context.stub'),
-  StubElasticsearch = require('./stubs/elasticsearch.stub');
+  StubElasticsearch = require('./stubs/elasticsearch.stub'),
+  longTimeout = require('long-timeout');
 
 require('sinon-as-promised');
 
@@ -14,27 +15,36 @@ describe('#Testing index file', () => {
     plugin,
     esStub,
     sandbox,
-    fakeContext;
+    fakeContext,
+    setIntervalSpy;
 
   before(() => {
-    esStub = new StubElasticsearch();
-
-    Plugin = proxyquire('../lib/index', {
-      'elasticsearch': {
-        Client: esStub
-      }
-    });
-
     sandbox = sinon.sandbox.create();
   });
 
   beforeEach(() => {
+    sandbox.reset();
+
+    setIntervalSpy = sandbox.spy(longTimeout, 'setInterval');
+    esStub = new StubElasticsearch();
+    Plugin = proxyquire('../lib/index', {
+      'elasticsearch': {
+        Client: esStub
+      },
+      'long-timeout': longTimeout
+    });
+
     plugin = new Plugin();
     esStub.reset();
-    sandbox.reset();
     fakeContext = new StubContext();
   });
 
+  afterEach(() => {
+    setIntervalSpy.returnValues.forEach(value => {
+      longTimeout.clearInterval(value);
+    });
+    setIntervalSpy.restore();
+  });
 
   it('should throw an error if no config is provided', () => {
     should(() => plugin.init({}, {}, false)).throw(/no configuration provided/);
@@ -213,10 +223,66 @@ describe('#Testing index file', () => {
         clock.uninstall();
         plugin.client.create.restore();
         setTimeout(() => {
-          should(plugin.measures.foo['foo:bar']).be.eql(1);
+          try {
+            should(plugin.measures.foo['foo:bar']).be.eql(1);
+          } catch (e) {
+            return done(e);
+          }
+
           done();
         }, 0);
       })
       .catch(err => done(err));
+  });
+
+  it('should call setInterval when an interval is set on a valid probe', (done) => {
+    plugin.init({
+      databases: ['foo'],
+      storageIndex: 'storageIndex',
+      probes: {
+        fooprobe: {
+          type: 'watcher',
+          index: 'foo',
+          collection: 'bar',
+          collects: ['foo'],
+          interval: '1ms'
+        }
+      }
+    }, fakeContext);
+
+    sinon.stub(plugin.client, 'create').resolves({});
+    sinon.stub(plugin.client, 'bulk').resolves({});
+
+    setTimeout(() => {
+      should(setIntervalSpy.calledOnce).be.true();
+
+      plugin.client.create.reset();
+      plugin.client.bulk.reset();
+
+      done();
+    }, 20);
+  });
+
+  it('should not call setInterval when an error occures during collection creation', (done) => {
+    plugin.init({
+      databases: ['foo'],
+      storageIndex: 'storageIndex',
+      probes: {
+        fooprobe: {
+          type: 'watcher',
+          index: 'foo',
+          collection: 'bar',
+          collects: ['foo'],
+          interval: '1ms'
+        }
+      }
+    }, fakeContext);
+
+    plugin.client.indices.putMapping.rejects(new Error('an Error'));
+
+    setTimeout(() => {
+      should(setIntervalSpy.callCount).be.eql(0);
+      done();
+    }, 20);
   });
 });

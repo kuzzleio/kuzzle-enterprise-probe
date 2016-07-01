@@ -256,6 +256,23 @@ Probe configuration examples:
         "documentField",
         "a.nestedAttribute.using.JsonPath"
       ],
+      "mapping": {
+        "_id": {"type": "string"},
+        "documentField": {"type": "string", "index": "not_analyzed"},
+        "a": {
+          "properties": {
+            "nestedAttribute": {
+              "properties": {
+                "using": {
+                  "properties" : {
+                    "JsonPath": {"type": "string"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
       "interval": "10 minutes"
     },
     "probe_watcher_2": {
@@ -287,6 +304,12 @@ Parameters rundown:
 - `filter` configures what documents/messages will be watched:
   - if empty, undefined or null, all documents/messages sent to the corresponding index-collection pair will be collected
   - otherwise, a filter can be set, using [Kuzzle DSL](http://kuzzle.io/guide/#filtering-syntax)
+- `mapping` configures the mapping of collected fields in the probe's measurement collection:
+  - empty, null or undefined: lets Elasticsearch choose a default mapping for collected fields (not recommended)
+  - a valid [Elasticsearch mapping](https://www.elastic.co/guide/en/elasticsearch/reference/2.3/mapping.html) for the field content: applies the mapping to the non-existing collection
+    - the mapping will not apply if the collection already exists
+    - the mapping will not apply if `collects` is empty
+    - :warning: no check is done between `collects` fields and the provided mapping
 
 ### Measure document (first probe example)
 
@@ -348,6 +371,23 @@ kuzzle plugins --set '{
         "documentField",
         "a.nestedAttribute.using.JsonPath"
       ],
+      "mapping": {
+        "_id": {"type": "string"},
+        "documentField": {"type": "string", "index": "not_analyzed"},
+        "a": {
+          "properties": {
+            "nestedAttribute": {
+              "properties": {
+                "using": {
+                  "properties" : {
+                    "JsonPath": {"type": "string"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
       "interval": "10 minutes"
     }
   }

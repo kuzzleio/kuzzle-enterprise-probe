@@ -3,7 +3,8 @@ var
   sinon = require('sinon'),
   proxyquire = require('proxyquire'),
   StubContext = require('./stubs/context.stub'),
-  StubElasticsearch = require('./stubs/elasticsearch.stub');
+  StubElasticsearch = require('./stubs/elasticsearch.stub'),
+  longTimeout = require('long-timeout');
 
 require('sinon-as-promised');
 
@@ -12,22 +13,29 @@ describe('#watcher probes', () => {
     Plugin,
     plugin,
     esStub,
-    fakeContext;
+    fakeContext,
+    setIntervalSpy;
 
-  before(() => {
+  beforeEach(() => {
+    setIntervalSpy = sinon.spy(longTimeout, 'setInterval');
     esStub = new StubElasticsearch();
-
     Plugin = proxyquire('../lib/index', {
       'elasticsearch': {
         Client: esStub
-      }
+      },
+      'long-timeout': longTimeout
     });
-  });
 
-  beforeEach(() => {
     plugin = new Plugin();
     esStub.reset();
     fakeContext = new StubContext();
+  });
+
+  afterEach(() => {
+    setIntervalSpy.returnValues.forEach(value => {
+      longTimeout.clearInterval(value);
+    });
+    setIntervalSpy.restore();
   });
 
   it('should initialize probes according to their configuration', () => {
@@ -286,6 +294,154 @@ describe('#watcher probes', () => {
         should(plugin.measures.fooprobe.content).be.empty();
         done();
       }, 20);
+    }, 20);
+  });
+
+  it('should create a collection with timestamp and count mapping if no mapping is provided and collects is empty', (done) => {
+    plugin.init({
+      databases: ['foo'],
+      storageIndex: 'storageIndex',
+      probes: {
+        fooprobe: {
+          type: 'watcher',
+          index: 'foo',
+          collection: 'bar'
+        }
+      }
+    }, fakeContext);
+
+
+    setTimeout(() => {
+      should(plugin.client.indices.putMapping.calledOnce).be.true();
+      should(plugin.client.indices.putMapping.firstCall.args[0]).match({
+        index: 'storageIndex',
+        type: 'fooprobe',
+        updateAllTypes: false,
+        body: {
+          properties: {
+            timestamp: {
+              type: 'date',
+              format: 'epoch_millis'
+            },
+            count: {
+              type: 'integer'
+            }
+          }
+        }
+      });
+
+      done();
+    }, 20);
+  });
+
+  it('should create a collection with timestamp mapping if no mapping is provided and collects is not empty', (done) => {
+    plugin.init({
+      databases: ['foo'],
+      storageIndex: 'storageIndex',
+      probes: {
+        fooprobe: {
+          type: 'watcher',
+          index: 'foo',
+          collection: 'bar',
+          collects: ['foo']
+        }
+      }
+    }, fakeContext);
+
+
+    setTimeout(() => {
+      should(plugin.client.indices.putMapping.calledOnce).be.true();
+      should(plugin.client.indices.putMapping.firstCall.args[0]).match({
+        index: 'storageIndex',
+        type: 'fooprobe',
+        updateAllTypes: false,
+        body: {
+          properties: {
+            timestamp: {
+              type: 'date',
+              format: 'epoch_millis'
+            }
+          }
+        }
+      });
+
+      done();
+    }, 20);
+  });
+
+  it('should create a collection with timestamp and provided mapping mapping if a mapping is provided', (done) => {
+    plugin.init({
+      databases: ['foo'],
+      storageIndex: 'storageIndex',
+      probes: {
+        fooprobe: {
+          type: 'watcher',
+          index: 'foo',
+          collection: 'bar',
+          collects: ['foo'],
+          mapping: {foo: 'bar'}
+        }
+      }
+    }, fakeContext);
+
+
+    setTimeout(() => {
+      should(plugin.client.indices.putMapping.calledOnce).be.true();
+      should(plugin.client.indices.putMapping.firstCall.args[0]).match({
+        index: 'storageIndex',
+        type: 'fooprobe',
+        updateAllTypes: false,
+        body: {
+          properties: {
+            timestamp: {
+              type: 'date',
+              format: 'epoch_millis'
+            },
+            content: {
+              properties: {
+                foo: 'bar'
+              }
+            }
+          }
+        }
+      });
+      done();
+    }, 20);
+  });
+
+  it('should not create a collection if it already exists', (done) => {
+    plugin.init({
+      databases: ['foo'],
+      storageIndex: 'storageIndex',
+      probes: {
+        fooprobe: {
+          type: 'watcher',
+          index: 'foo',
+          collection: 'bar',
+          collects: ['foo'],
+          mapping: {foo: 'bar'}
+        }
+      }
+    }, fakeContext);
+
+    sinon.stub(plugin.client, 'bulk').resolves();
+    sinon.stub(plugin.client, 'create').resolves();
+
+    plugin.client.indices.getMapping.resolves({
+      storageIndex: {
+        mappings: {
+          fooprobe: 'exists'
+        }
+      }
+    });
+
+    setTimeout(() => {
+      should(plugin.client.indices.putMapping.callCount).be.eql(0);
+
+      plugin.client.bulk.restore();
+      plugin.client.create.restore();
+
+      done();
     }, 20);
   });
 });
