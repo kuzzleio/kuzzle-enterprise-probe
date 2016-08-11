@@ -33,6 +33,7 @@
 # About
 
 This is a dummy test for concourse, do not merge
+Another test
 Plugin allowing to add probes, collecting data and events to calculate data metrics.
 
 
