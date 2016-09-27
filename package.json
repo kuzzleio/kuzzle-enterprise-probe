@@ -1,6 +1,6 @@
 {
   "name": "kuzzle-enterprise-probe",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "Kuzzle Enterprise plugin: statistical data probe",
   "main": "./lib/index.js",
   "repository": {
