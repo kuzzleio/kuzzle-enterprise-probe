@@ -40,7 +40,7 @@ describe('#counter probes', () => {
   });
 
   it('should initialize probes according to their configuration', () => {
-    plugin.init({
+    return plugin.init({
       databases: ['foo'],
       storageIndex: 'bar',
       probes: {
@@ -57,14 +57,14 @@ describe('#counter probes', () => {
           interval: '1m'
         }
       }
-    }, fakeContext, false);
-
-    should(plugin.probes.bar).not.be.empty().and.have.property('interval').eql(60 * 60 * 1000);
-    should(plugin.probes.badProbe).be.undefined();
+    }, fakeContext, false).then(() => {
+      should(plugin.probes.bar).not.be.empty().and.have.property('interval').eql(60 * 60 * 1000);
+      should(plugin.probes.badProbe).be.undefined();
+    });
   });
 
   it('should initialize the events mapping properly', () => {
-    plugin.init({
+    return plugin.init({
       databases: ['foo'],
       storageIndex: 'bar',
       probes: {
@@ -79,18 +79,18 @@ describe('#counter probes', () => {
           decreasers: ['foo:bar']
         }
       }
-    }, fakeContext, false);
-
-    should(plugin.dummy).be.false();
-    should(plugin.eventMapping.counter.increasers['bar:baz']).match(['bar', 'baz']);
-    should(plugin.eventMapping.counter.increasers['foo:bar']).match(['bar']);
-    should(plugin.eventMapping.counter.increasers['baz:qux']).match(['baz']);
-    should(plugin.eventMapping.counter.decreasers['baz:qux']).match(['bar']);
-    should(plugin.eventMapping.counter.decreasers['foo:bar']).match(['baz']);
+    }, fakeContext, false).then(() => {
+      should(plugin.dummy).be.false();
+      should(plugin.eventMapping.counter.increasers['bar:baz']).match(['bar', 'baz']);
+      should(plugin.eventMapping.counter.increasers['foo:bar']).match(['bar']);
+      should(plugin.eventMapping.counter.increasers['baz:qux']).match(['baz']);
+      should(plugin.eventMapping.counter.decreasers['baz:qux']).match(['bar']);
+      should(plugin.eventMapping.counter.decreasers['foo:bar']).match(['baz']);
+    });
   });
 
   it('should initialize the measures object properly', () => {
-    plugin.init({
+    return plugin.init({
       databases: ['foo'],
       storageIndex: 'bar',
       probes: {
@@ -105,11 +105,11 @@ describe('#counter probes', () => {
           decreasers: ['foo:bar']
         }
       }
-    }, fakeContext, false);
-
-    should(plugin.dummy).be.false();
-    should(plugin.measures.bar).match({count: 0});
-    should(plugin.measures.baz).match({count: 0});
+    }, fakeContext, false).then(() => {
+      should(plugin.dummy).be.false();
+      should(plugin.measures.bar).match({count: 0});
+      should(plugin.measures.baz).match({count: 0});
+    });
   });
 
   it('should save immediately an increasing counter if no interval is set', (done) => {
@@ -123,26 +123,26 @@ describe('#counter probes', () => {
           decreasers: ['baz:qux', 'qux:foo']
         }
       }
-    }, fakeContext);
+    }, fakeContext).then(() => {
+      sinon.stub(plugin.client, 'create').resolves();
+      plugin.counter('foo:bar');
+      should(plugin.client.create.calledOnce).be.true();
+      should(plugin.client.create.calledWithMatch({
+        index: 'bar',
+        type: 'foo',
+        body: {
+          'count': 1
+        }
+      })).be.true();
 
-    sinon.stub(plugin.client, 'create').resolves();
-    plugin.counter('foo:bar');
-    should(plugin.client.create.calledOnce).be.true();
-    should(plugin.client.create.calledWithMatch({
-      index: 'bar',
-      type: 'foo',
-      body: {
-        'count': 1
-      }
-    })).be.true();
+      plugin.client.create.restore();
 
-    plugin.client.create.restore();
-
-    // measure should never be reset
-    setTimeout(() => {
-      should(plugin.measures.foo.count).be.eql(1);
-      done();
-    }, 0);
+      // measure should never be reset
+      setTimeout(() => {
+        should(plugin.measures.foo.count).be.eql(1);
+        done();
+      }, 0);
+    });
   });
 
   it('should save immediately an decreasing counter if no interval is set', (done) => {
@@ -156,36 +156,36 @@ describe('#counter probes', () => {
           decreasers: ['baz:qux', 'qux:foo']
         }
       }
-    }, fakeContext);
+    }, fakeContext).then(() => {
+      sinon.stub(plugin.client, 'create').resolves();
+      plugin.counter('qux:foo');
+      should(plugin.client.create.calledOnce).be.true();
+      should(plugin.client.create.calledWithMatch({
+        index: 'bar',
+        type: 'foo',
+        body: {
+          'count': -1
+        }
+      })).be.true();
 
-    sinon.stub(plugin.client, 'create').resolves();
-    plugin.counter('qux:foo');
-    should(plugin.client.create.calledOnce).be.true();
-    should(plugin.client.create.calledWithMatch({
-      index: 'bar',
-      type: 'foo',
-      body: {
-        'count': -1
-      }
-    })).be.true();
+      plugin.counter('baz:qux');
+      should(plugin.client.create.calledTwice).be.true();
+      should(plugin.client.create.calledWithMatch({
+        index: 'bar',
+        type: 'foo',
+        body: {
+          'count': -2
+        }
+      })).be.true();
 
-    plugin.counter('baz:qux');
-    should(plugin.client.create.calledTwice).be.true();
-    should(plugin.client.create.calledWithMatch({
-      index: 'bar',
-      type: 'foo',
-      body: {
-        'count': -2
-      }
-    })).be.true();
+      plugin.client.create.restore();
 
-    plugin.client.create.restore();
-
-    // measure should never be reset
-    setTimeout(() => {
-      should(plugin.measures.foo.count).be.eql(-2);
-      done();
-    }, 0);
+      // measure should never be reset
+      setTimeout(() => {
+        should(plugin.measures.foo.count).be.eql(-2);
+        done();
+      }, 0);
+    });
   });
 
   it('should only save the counter after the given interval', (done) => {

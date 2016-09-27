@@ -124,7 +124,7 @@ describe('#watcher probes', () => {
   });
 
   it('should initialize the measures object properly', () => {
-    plugin.init({
+    return plugin.init({
       databases: ['foo'],
       storageIndex: 'bar',
       probes: {
@@ -146,11 +146,11 @@ describe('#watcher probes', () => {
           collection: 'bar'
         }
       }
-    }, fakeContext, false);
-
-    should(plugin.measures.foo).match({content: []});
-    should(plugin.measures.bar).match({content: []});
-    should(plugin.measures.baz).match({count: 0});
+    }, fakeContext, false).then(() => {
+      should(plugin.measures.foo).match({content: []});
+      should(plugin.measures.bar).match({content: []});
+      should(plugin.measures.baz).match({count: 0});
+    });
   });
 
   it('should save immediately if no interval is set (watcher with collected content)', (done) => {
@@ -165,11 +165,11 @@ describe('#watcher probes', () => {
           collects: '*'
         }
       }
-    }, fakeContext);
-
-    sinon.stub(plugin.dsl, 'test').resolves(['filterId']);
-    sinon.stub(plugin.client, 'bulk').resolves();
-    plugin.watcher({index: 'foo', collection: 'bar', data: {body: {foo: 'bar'}}});
+    }, fakeContext).then(() => {
+      sinon.stub(plugin.dsl, 'test').resolves(['filterId']);
+      sinon.stub(plugin.client, 'bulk').resolves();
+      plugin.watcher({index: 'foo', collection: 'bar', data: {body: {foo: 'bar'}}});
+    });
 
     setTimeout(() => {
       should(plugin.dsl.test.calledOnce).be.true();
@@ -204,33 +204,33 @@ describe('#watcher probes', () => {
           collection: 'bar'
         }
       }
-    }, fakeContext);
+    }, fakeContext).then(() => {
+      sinon.stub(plugin.dsl, 'test').resolves(['filterId']);
+      sinon.stub(plugin.client, 'create').resolves();
+      plugin.watcher({index: 'foo', collection: 'bar', data: {body: {foo: 'bar'}}});
 
-    sinon.stub(plugin.dsl, 'test').resolves(['filterId']);
-    sinon.stub(plugin.client, 'create').resolves();
-    plugin.watcher({index: 'foo', collection: 'bar', data: {body: {foo: 'bar'}}});
-
-    setTimeout(() => {
-      should(plugin.dsl.test.calledOnce).be.true();
-      should(plugin.dsl.test.calledWithMatch('foo', 'bar', {foo: 'bar'}, undefined));
-      should(plugin.client.create.calledOnce).be.true();
-      should(plugin.client.create.firstCall.args[0]).match({
-        index: 'storageIndex',
-        type: 'fooprobe',
-        body: {
-          'count': plugin.measures.fooprobe.count
-        }
-      });
-
-      plugin.client.create.restore();
-      plugin.dsl.test.restore();
-
-      // measure should be reset
       setTimeout(() => {
-        should(plugin.measures.fooprobe.count).be.eql(0);
-        done();
-      }, 20);
-    }, 0);
+        should(plugin.dsl.test.calledOnce).be.true();
+        should(plugin.dsl.test.calledWithMatch('foo', 'bar', {foo: 'bar'}, undefined));
+        should(plugin.client.create.calledOnce).be.true();
+        should(plugin.client.create.firstCall.args[0]).match({
+          index: 'storageIndex',
+          type: 'fooprobe',
+          body: {
+            'count': plugin.measures.fooprobe.count
+          }
+        });
+
+        plugin.client.create.restore();
+        plugin.dsl.test.restore();
+
+        // measure should be reset
+        setTimeout(() => {
+          should(plugin.measures.fooprobe.count).be.eql(0);
+          done();
+        }, 20);
+      }, 0);
+    });
   });
 
   it('should collect the configured collectable fields', (done) => {
@@ -260,11 +260,11 @@ describe('#watcher probes', () => {
           collects: ['foobar', 'foo.baz', 'foo.qux', 'barfoo']
         }
       }
-    }, fakeContext);
-
-    sinon.stub(plugin.dsl, 'test').resolves(['filterId']);
-    sinon.stub(plugin.client, 'bulk').resolves();
-    plugin.watcher({index: 'foo', collection: 'bar', data: document});
+    }, fakeContext).then(() => {
+      sinon.stub(plugin.dsl, 'test').resolves(['filterId']);
+      sinon.stub(plugin.client, 'bulk').resolves();
+      plugin.watcher({index: 'foo', collection: 'bar', data: document});
+    });
 
     setTimeout(() => {
       should(plugin.dsl.test.calledOnce).be.true();

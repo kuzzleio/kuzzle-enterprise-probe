@@ -63,30 +63,32 @@ describe('#Testing index file', () => {
     should(() => plugin.init({databases: ['foo:bar'], storageIndex: 1}, {}, false)).throw(/no storage index/);
     should(() => plugin.init({databases: ['foo:bar'], storageIndex: ''}, {}, false)).throw(/no storage index/);
   });
-  
+
   it('should enter dummy mode if no probe is set', () => {
-    plugin.init({
+    return plugin.init({
       databases: ['foo'],
       storageIndex: 'bar'
-    }, fakeContext, false);
+    }, fakeContext, false)
+      .then(() => {
+        should(plugin.dummy).be.true();
+        should(plugin.probes).be.empty();
+        should(plugin.client).be.null();
 
-    should(plugin.dummy).be.true();
-    should(plugin.probes).be.empty();
-    should(plugin.client).be.null();
-
-    plugin.init({
-      databases: ['foo'],
-      storageIndex: 'bar',
-      probes: {}
-    }, fakeContext, false);
-
-    should(plugin.dummy).be.true();
-    should(plugin.probes).be.empty();
-    should(plugin.client).be.null();
+        return plugin.init({
+          databases: ['foo'],
+          storageIndex: 'bar',
+          probes: {}
+        }, fakeContext, false);
+      })
+      .then(() => {
+        should(plugin.dummy).be.true();
+        should(plugin.probes).be.empty();
+        should(plugin.client).be.null();
+      });
   });
 
   it('should enter dummy mode when asked to', () => {
-    plugin.init({
+    return plugin.init({
       databases: ['foo'],
       storageIndex: 'bar',
       probes: {
@@ -95,30 +97,28 @@ describe('#Testing index file', () => {
           hooks: ['foo:bar']
         }
       }
-    }, fakeContext, true);
-
-    should(plugin.dummy).be.true();
-    should(plugin.probes).not.be.empty();
-    should(plugin.client).be.null();
+    }, fakeContext, true).then(() => {
+      should(plugin.dummy).be.true();
+      should(plugin.probes).not.be.empty();
+      should(plugin.client).be.null();
+    });
   });
 
   it('should prepare the DSL at startup', () => {
     var
-      stubRegister = sinon.stub(),
-      stubCreateFilterId = sinon.stub().returns('foobar');
+      stubRegister = sinon.stub().resolves({id: 'foobar'});
 
     fakeContext = {
       constructors: {
         Dsl: function () {
           return {
-            register: stubRegister,
-            createFilterId: stubCreateFilterId
+            register: stubRegister
           };
         }
       }
     };
 
-    plugin.init({
+    return plugin.init({
       databases: ['foo'],
       storageIndex: 'bar',
       probes: {
@@ -129,16 +129,14 @@ describe('#Testing index file', () => {
           filter: {}
         }
       }
-    }, fakeContext, false);
-
-    should(stubCreateFilterId.calledOnce).be.true();
-    should(stubCreateFilterId.calledWith('foo', 'bar', {})).be.true();
-    should(stubRegister.calledOnce).be.true();
-    should(stubRegister.calledWith('foobar', 'foo', 'bar', {})).be.true();
+    }, fakeContext, false).then(() => {
+      should(stubRegister.calledOnce).be.true();
+      should(stubRegister.calledWith('foo', 'bar', {})).be.true();
+    });
   });
 
   it('should ignore probes without any type defined', () => {
-    plugin.init({
+    return plugin.init({
       databases: ['foo'],
       storageIndex: 'bar',
       probes: {
@@ -148,13 +146,13 @@ describe('#Testing index file', () => {
           hooks: ['foo:bar', 'data:beforePublish']
         }
       }
-    }, fakeContext, false);
-
-    should(plugin.probes.badProbe).be.undefined();
+    }, fakeContext, false).then(() => {
+      should(plugin.probes.badProbe).be.undefined();
+    });
   });
 
   it('should initialize the hooks list properly', () => {
-    plugin.init({
+    return plugin.init({
       databases: ['foo'],
       storageIndex: 'bar',
       probes: {
@@ -178,16 +176,16 @@ describe('#Testing index file', () => {
           collection: 'bar'
         }
       }
-    }, fakeContext, false);
-
-    should(plugin.dummy).be.false();
-    should(plugin.hooks['foo:bar']).match(['monitor', 'counter']);
-    should(plugin.hooks['bar:baz']).be.eql('counter');
-    should(plugin.hooks['baz:qux']).be.eql('counter');
-    should(plugin.hooks['data:beforePublish'].sort()).be.eql(['counter', 'monitor', 'watcher']);
-    should(plugin.hooks['data:beforeCreate']).be.eql('watcher');
+    }, fakeContext, false).then(() => {
+      should(plugin.dummy).be.false();
+      should(plugin.hooks['foo:bar']).match(['monitor', 'counter']);
+      should(plugin.hooks['bar:baz']).be.eql('counter');
+      should(plugin.hooks['baz:qux']).be.eql('counter');
+      should(plugin.hooks['data:beforePublish'].sort()).be.eql(['counter', 'monitor', 'watcher']);
+      should(plugin.hooks['data:beforeCreate']).be.eql('watcher');
+    });
   });
-  
+
   it('should not reset the measure if an error during saving occurs', (done) => {
     var
       clock = lolex.install(),
@@ -248,22 +246,42 @@ describe('#Testing index file', () => {
           interval: '1ms'
         }
       }
-    }, fakeContext);
+    }, fakeContext).then(() => {
+      sinon.stub(plugin.client, 'create').resolves({});
+      sinon.stub(plugin.client, 'bulk').resolves({});
 
-    sinon.stub(plugin.client, 'create').resolves({});
-    sinon.stub(plugin.client, 'bulk').resolves({});
+      setTimeout(() => {
+        should(setIntervalSpy.calledOnce).be.true();
 
-    setTimeout(() => {
-      should(setIntervalSpy.calledOnce).be.true();
+        plugin.client.create.reset();
+        plugin.client.bulk.reset();
 
-      plugin.client.create.reset();
-      plugin.client.bulk.reset();
-
-      done();
-    }, 20);
+        done();
+      }, 20);
+    });
   });
 
   it('should not call setInterval when an error occures during collection creation', (done) => {
+    var
+      stub = sinon.stub().returns({
+        indices: {
+          exists: sinon.stub().resolves(false),
+          create: sinon.stub(),
+          getMapping: sinon.stub().resolves([]),
+          putMapping: sinon.stub().rejects(new Error('an Error'))
+        },
+        create: function () {},
+        bulk: function () {}
+      }),
+      P = proxyquire('../lib/index', {
+        'elasticsearch': {
+          Client: stub
+        },
+        'long-timeout': longTimeout
+      });
+
+    plugin = new P();
+
     plugin.init({
       databases: ['foo'],
       storageIndex: 'storageIndex',
@@ -276,13 +294,11 @@ describe('#Testing index file', () => {
           interval: '1ms'
         }
       }
-    }, fakeContext);
-
-    plugin.client.indices.putMapping.rejects(new Error('an Error'));
-
-    setTimeout(() => {
-      should(setIntervalSpy.callCount).be.eql(0);
-      done();
-    }, 20);
+    }, fakeContext).then(() => {
+      setTimeout(() => {
+        should(setIntervalSpy.callCount).be.eql(0);
+        done();
+      }, 20);
+    });
   });
 });

@@ -39,6 +39,7 @@
   },
   "license": "SEE LICENSE IN LICENSE",
   "dependencies": {
+    "bluebird": "^3.4.6",
     "elasticsearch": "^11.0.1",
     "lodash": "^4.12.0",
     "long-timeout": "^0.1.1",
