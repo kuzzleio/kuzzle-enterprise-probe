@@ -3,8 +3,7 @@ module.exports = function () {
     constructors: {
       Dsl: function () {
         return {
-          register: () => {},
-          createFilterId: () => 'filterId',
+          register: () => Promise.resolve({id: 'filterId'}),
           test: () => {}
         };
       }

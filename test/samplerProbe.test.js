@@ -39,7 +39,7 @@ describe('#sampler probes', () => {
   });
 
   it('should initialize probes according to their configuration', () => {
-    plugin.init({
+    return plugin.init({
       databases: ['foo'],
       storageIndex: 'bar',
       probes: {
@@ -174,26 +174,26 @@ describe('#sampler probes', () => {
           collects: '*'
         }
       }
-    }, fakeContext, false);
-
-    should(plugin.probes.foo).not.be.empty().and.have.property('interval').eql(60 * 60 * 1000);
-    should(plugin.probes.bar).not.be.empty().and.have.property('interval').eql(60 * 1000);
-    should(plugin.probes.baz).not.be.empty().and.have.property('filter').match({});
-    should(plugin.probes.badProbe1).be.undefined();
-    should(plugin.probes.badProbe2).be.undefined();
-    should(plugin.probes.badProbe3).be.undefined();
-    should(plugin.probes.badProbe4).be.undefined();
-    should(plugin.probes.badProbe5).be.undefined();
-    should(plugin.probes.badProbe6).be.undefined();
-    should(plugin.probes.badProbe7).be.undefined();
-    should(plugin.probes.badProbe8).be.undefined();
-    should(plugin.probes.badProbe9).be.undefined();
-    should(plugin.probes.badProbe10).be.undefined();
-    should(plugin.probes.badProbe11).be.undefined();
+    }, fakeContext, false).then(() => {
+      should(plugin.probes.foo).not.be.empty().and.have.property('interval').eql(60 * 60 * 1000);
+      should(plugin.probes.bar).not.be.empty().and.have.property('interval').eql(60 * 1000);
+      should(plugin.probes.baz).not.be.empty().and.have.property('filter').match({});
+      should(plugin.probes.badProbe1).be.undefined();
+      should(plugin.probes.badProbe2).be.undefined();
+      should(plugin.probes.badProbe3).be.undefined();
+      should(plugin.probes.badProbe4).be.undefined();
+      should(plugin.probes.badProbe5).be.undefined();
+      should(plugin.probes.badProbe6).be.undefined();
+      should(plugin.probes.badProbe7).be.undefined();
+      should(plugin.probes.badProbe8).be.undefined();
+      should(plugin.probes.badProbe9).be.undefined();
+      should(plugin.probes.badProbe10).be.undefined();
+      should(plugin.probes.badProbe11).be.undefined();
+    });
   });
 
   it('should initialize the measures object properly', () => {
-    plugin.init({
+    return plugin.init({
       databases: ['foo'],
       storageIndex: 'bar',
       probes: {
@@ -206,9 +206,9 @@ describe('#sampler probes', () => {
           interval: '1m'
         }
       }
-    }, fakeContext, false);
-
-    should(plugin.measures.foo).match({content: [], count: 0});
+    }, fakeContext, false).then(() => {
+      should(plugin.measures.foo).match({content: [], count: 0});
+    });
   });
 
   it('should collect a sample of the provided documents', (done) => {
@@ -241,43 +241,43 @@ describe('#sampler probes', () => {
           interval: '1ms'
         }
       }
-    }, fakeContext);
+    }, fakeContext).then(() => {
+      sinon.stub(plugin.dsl, 'test').resolves(['filterId']);
+      sinon.stub(plugin.client, 'bulk').resolves();
 
-    sinon.stub(plugin.dsl, 'test').resolves(['filterId']);
-    sinon.stub(plugin.client, 'bulk').resolves();
+      for (i = 0; i < 100; i++) {
+        plugin.sampler({index: 'foo', collection: 'bar', data: document});
+      }
 
-    for (i = 0; i < 100; i++) {
-      plugin.sampler({index: 'foo', collection: 'bar', data: document});
-    }
-
-    setTimeout(() => {
-      should(plugin.dsl.test.callCount).be.eql(100);
-      should(plugin.dsl.test.alwaysCalledWithMatch('foo', 'bar', {foo: 'bar'}, undefined));
-      should(plugin.client.bulk.calledOnce).be.true();
-      should(plugin.client.bulk.firstCall.args[0].body.length).be.eql(6); // 3 documents + 3 bulk headers
-      should(plugin.client.bulk.firstCall.args[0].body[1]).match({
-        content: {
-          _id: document._id,
-          foobar: 'foobar',
-          foo: {
-            baz: 'baz',
-            qux: 'qux'
-          },
-          barfoo: 'barfoo'}
-      });
-
-      should(plugin.client.bulk.firstCall.args[0].body[1].content.quxbar).be.undefined();
-      should(plugin.client.bulk.firstCall.args[0].body[1].content.foo.bar).be.undefined();
-
-      plugin.client.bulk.restore();
-      plugin.dsl.test.restore();
-
-      // measure should be reset
       setTimeout(() => {
-        should(plugin.measures.fooprobe.content).be.empty();
-        done();
+        should(plugin.dsl.test.callCount).be.eql(100);
+        should(plugin.dsl.test.alwaysCalledWithMatch('foo', 'bar', {foo: 'bar'}, undefined));
+        should(plugin.client.bulk.calledOnce).be.true();
+        should(plugin.client.bulk.firstCall.args[0].body.length).be.eql(6); // 3 documents + 3 bulk headers
+        should(plugin.client.bulk.firstCall.args[0].body[1]).match({
+          content: {
+            _id: document._id,
+            foobar: 'foobar',
+            foo: {
+              baz: 'baz',
+              qux: 'qux'
+            },
+            barfoo: 'barfoo'}
+        });
+
+        should(plugin.client.bulk.firstCall.args[0].body[1].content.quxbar).be.undefined();
+        should(plugin.client.bulk.firstCall.args[0].body[1].content.foo.bar).be.undefined();
+
+        plugin.client.bulk.restore();
+        plugin.dsl.test.restore();
+
+        // measure should be reset
+        setTimeout(() => {
+          should(plugin.measures.fooprobe.content).be.empty();
+          done();
+        }, 20);
       }, 20);
-    }, 20);
+    });
   });
 
   it('should create a collection with timestamp mapping if no mapping is provided and collects is not empty', (done) => {

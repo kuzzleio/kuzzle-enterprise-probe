@@ -1,6 +1,6 @@
 {
   "name": "kuzzle-enterprise-probe",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "Kuzzle Enterprise plugin: statistical data probe",
   "main": "./lib/index.js",
   "repository": {
@@ -39,6 +39,7 @@
   },
   "license": "SEE LICENSE IN LICENSE",
   "dependencies": {
+    "bluebird": "^3.4.6",
     "elasticsearch": "^11.0.1",
     "lodash": "^4.12.0",
     "long-timeout": "^0.1.1",
