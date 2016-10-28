@@ -1,4 +1,3 @@
-<p align=center> ![logo](http://kuzzle.io/guide/images/kuzzle.svg)
 
 # Table of Contents
 
