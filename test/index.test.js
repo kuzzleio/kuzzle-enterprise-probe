@@ -46,20 +46,12 @@ describe('#Testing index file', () => {
     setIntervalSpy.restore();
   });
 
-  it('should throw an error if no config is provided', () => {
-    should(() => plugin.init({}, {}, false)).throw(/no configuration provided/);
-    should(() => plugin.init(undefined, {}, false)).throw(/no configuration provided/);
-    should(() => plugin.init(null, {}, false)).throw(/no configuration provided/);
-  });
-
   it('should throw an error if no target database is configured', () => {
-    should(() => plugin.init({foo: 'bar'}, {}, false)).throw(/no target database set/);
     should(() => plugin.init({databases: 'foo:bar'}, {}, false)).throw(/no target database set/);
     should(() => plugin.init({databases: []}, {}, false)).throw(/no target database set/);
   });
 
   it('should throw an error if no storage index is configured', () => {
-    should(() => plugin.init({databases: ['foo:bar']}, {}, false)).throw(/no storage index/);
     should(() => plugin.init({databases: ['foo:bar'], storageIndex: 1}, {}, false)).throw(/no storage index/);
     should(() => plugin.init({databases: ['foo:bar'], storageIndex: ''}, {}, false)).throw(/no storage index/);
   });
