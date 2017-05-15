@@ -56,13 +56,12 @@ describe('#Testing index file', () => {
     should(() => plugin.init({databases: ['foo:bar'], storageIndex: ''}, {}, false)).throw(/no storage index/);
   });
 
-  it('should enter dummy mode if no probe is set', () => {
+  it('should do nothing is no probe is set', () => {
     return plugin.init({
       databases: ['foo'],
       storageIndex: 'bar'
     }, fakeContext, false)
       .then(() => {
-        should(plugin.dummy).be.true();
         should(plugin.probes).be.empty();
         should(plugin.client).be.null();
 
@@ -73,27 +72,9 @@ describe('#Testing index file', () => {
         }, fakeContext, false);
       })
       .then(() => {
-        should(plugin.dummy).be.true();
         should(plugin.probes).be.empty();
         should(plugin.client).be.null();
       });
-  });
-
-  it('should enter dummy mode when asked to', () => {
-    return plugin.init({
-      databases: ['foo'],
-      storageIndex: 'bar',
-      probes: {
-        foo: {
-          type: 'monitor',
-          hooks: ['foo:bar']
-        }
-      }
-    }, fakeContext, true).then(() => {
-      should(plugin.dummy).be.true();
-      should(plugin.probes).not.be.empty();
-      should(plugin.client).be.null();
-    });
   });
 
   it('should prepare the DSL at startup', () => {
@@ -169,7 +150,6 @@ describe('#Testing index file', () => {
         }
       }
     }, fakeContext, false).then(() => {
-      should(plugin.dummy).be.false();
       should(plugin.hooks['foo:bar']).match(['monitor', 'counter']);
       should(plugin.hooks['bar:baz']).be.eql('counter');
       should(plugin.hooks['baz:qux']).be.eql('counter');

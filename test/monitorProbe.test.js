@@ -76,7 +76,6 @@ describe('#monitor probes', () => {
         }
       }
     }, fakeContext, false).then(() => {
-      should(plugin.dummy).be.false();
       should(plugin.eventMapping.monitor['foo:bar']).match(['foo', 'qux']);
       should(plugin.eventMapping.monitor['bar:baz']).match(['qux']);
     });
@@ -97,7 +96,6 @@ describe('#monitor probes', () => {
         }
       }
     }, fakeContext, false).then(() => {
-      should(plugin.dummy).be.false();
       should(plugin.measures.foo).match({'foo:bar': 0});
       should(plugin.measures.qux).match({'foo:bar': 0, 'bar:baz': 0});
     });

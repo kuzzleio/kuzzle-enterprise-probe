@@ -168,7 +168,17 @@ describe('#watcher probes', () => {
     }, fakeContext).then(() => {
       sinon.stub(plugin.dsl, 'test').resolves(['filterId']);
       sinon.stub(plugin.client, 'bulk').resolves();
-      plugin.watcher({index: 'foo', collection: 'bar', data: {body: {foo: 'bar'}}});
+      plugin.watcher({
+        input: {
+          resource: {
+            index: 'foo',
+            collection: 'bar'
+          },
+          body: {
+            foo: 'bar'
+          }
+        }
+      });
     });
 
     setTimeout(() => {
@@ -207,7 +217,7 @@ describe('#watcher probes', () => {
     }, fakeContext).then(() => {
       sinon.stub(plugin.dsl, 'test').resolves(['filterId']);
       sinon.stub(plugin.client, 'create').resolves();
-      plugin.watcher({index: 'foo', collection: 'bar', data: {body: {foo: 'bar'}}});
+      plugin.watcher({input: {resource: {index: 'foo', collection: 'bar'}, body: {foo: 'bar'}}});
 
       setTimeout(() => {
         should(plugin.dsl.test.calledOnce).be.true();
@@ -235,18 +245,16 @@ describe('#watcher probes', () => {
 
   it('should collect the configured collectable fields', (done) => {
     const
-      document = {
-        _id: 'someId',
-        body: {
-          foobar: 'foobar',
-          foo: {
-            bar: 'bar',
-            baz: 'baz',
-            qux: 'qux'
-          },
-          barfoo: 'barfoo',
-          quxbaz: 'quxbaz'
-        }
+      documentId = 'someId',
+      documentBody = {
+        foobar: 'foobar',
+        foo: {
+          bar: 'bar',
+          baz: 'baz',
+          qux: 'qux'
+        },
+        barfoo: 'barfoo',
+        quxbaz: 'quxbaz'
       };
 
     plugin.init({
@@ -263,7 +271,7 @@ describe('#watcher probes', () => {
     }, fakeContext).then(() => {
       sinon.stub(plugin.dsl, 'test').resolves(['filterId']);
       sinon.stub(plugin.client, 'bulk').resolves();
-      plugin.watcher({index: 'foo', collection: 'bar', data: document});
+      plugin.watcher({input: {resource: {index: 'foo', collection: 'bar', _id: documentId}, body: documentBody}});
     });
 
     setTimeout(() => {
@@ -274,7 +282,7 @@ describe('#watcher probes', () => {
         body: [
           {index: {_index: 'storageIndex', _type: 'fooprobe'}},
           {content: {
-            _id: document._id,
+            _id: documentId,
             foobar: 'foobar',
             foo: {
               baz: 'baz',

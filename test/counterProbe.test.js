@@ -80,7 +80,6 @@ describe('#counter probes', () => {
         }
       }
     }, fakeContext, false).then(() => {
-      should(plugin.dummy).be.false();
       should(plugin.eventMapping.counter.increasers['bar:baz']).match(['bar', 'baz']);
       should(plugin.eventMapping.counter.increasers['foo:bar']).match(['bar']);
       should(plugin.eventMapping.counter.increasers['baz:qux']).match(['baz']);
@@ -106,7 +105,6 @@ describe('#counter probes', () => {
         }
       }
     }, fakeContext, false).then(() => {
-      should(plugin.dummy).be.false();
       should(plugin.measures.bar).match({count: 0});
       should(plugin.measures.baz).match({count: 0});
     });

@@ -215,18 +215,16 @@ describe('#sampler probes', () => {
     let
       i;
     const
-      document = {
-        _id: 'someId',
-        body: {
-          foobar: 'foobar',
-          foo: {
-            bar: 'bar',
-            baz: 'baz',
-            qux: 'qux'
-          },
-          barfoo: 'barfoo',
-          quxbaz: 'quxbaz'
-        }
+      documentId = 'someId',
+      documentBody = {
+        foobar: 'foobar',
+        foo: {
+          bar: 'bar',
+          baz: 'baz',
+          qux: 'qux'
+        },
+        barfoo: 'barfoo',
+        quxbaz: 'quxbaz'
       };
 
     plugin.init({
@@ -247,7 +245,7 @@ describe('#sampler probes', () => {
       sinon.stub(plugin.client, 'bulk').resolves();
 
       for (i = 0; i < 100; i++) {
-        plugin.sampler({index: 'foo', collection: 'bar', data: document});
+        plugin.sampler({input: {resource: {index: 'foo', collection: 'bar', _id: documentId}, body: documentBody}});
       }
 
       setTimeout(() => {
@@ -257,7 +255,7 @@ describe('#sampler probes', () => {
         should(plugin.client.bulk.firstCall.args[0].body.length).be.eql(6); // 3 documents + 3 bulk headers
         should(plugin.client.bulk.firstCall.args[0].body[1]).match({
           content: {
-            _id: document._id,
+            _id: documentId,
             foobar: 'foobar',
             foo: {
               baz: 'baz',
