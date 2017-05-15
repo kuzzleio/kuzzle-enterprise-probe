@@ -1,4 +1,4 @@
-var
+const
   should = require('should'),
   sinon = require('sinon'),
   proxyquire = require('proxyquire'),
@@ -10,7 +10,7 @@ var
 require('sinon-as-promised');
 
 describe('#Testing index file', () => {
-  var
+  let
     Plugin,
     plugin,
     esStub,
@@ -97,7 +97,7 @@ describe('#Testing index file', () => {
   });
 
   it('should prepare the DSL at startup', () => {
-    var
+    const
       stubRegister = sinon.stub().resolves({id: 'foobar'});
 
     fakeContext = {
@@ -179,7 +179,7 @@ describe('#Testing index file', () => {
   });
 
   it('should not reset the measure if an error during saving occurs', (done) => {
-    var
+    const
       clock = lolex.install(),
       pluginConfig = {
         databases: ['foo'],
@@ -254,7 +254,7 @@ describe('#Testing index file', () => {
   });
 
   it('should not call setInterval when an error occures during collection creation', (done) => {
-    var
+    const
       stub = sinon.stub().returns({
         indices: {
           exists: sinon.stub().resolves(false),

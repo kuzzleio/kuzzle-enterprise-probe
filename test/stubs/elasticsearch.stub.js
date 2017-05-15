@@ -1,4 +1,4 @@
-var
+const
   sinon = require('sinon');
 
 require('sinon-as-promised');

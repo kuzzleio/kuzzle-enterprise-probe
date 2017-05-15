@@ -1,4 +1,4 @@
-var
+const
   should = require('should'),
   sinon = require('sinon'),
   proxyquire = require('proxyquire'),
@@ -9,7 +9,7 @@ var
 require('sinon-as-promised');
 
 describe('#sampler probes', () => {
-  var
+  let
     Plugin,
     plugin,
     esStub,
@@ -212,8 +212,9 @@ describe('#sampler probes', () => {
   });
 
   it('should collect a sample of the provided documents', (done) => {
-    var
-      i,
+    let
+      i;
+    const
       document = {
         _id: 'someId',
         body: {

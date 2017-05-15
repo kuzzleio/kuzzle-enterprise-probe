@@ -1,4 +1,4 @@
-var
+const
   should = require('should'),
   sinon = require('sinon'),
   proxyquire = require('proxyquire'),
@@ -10,7 +10,7 @@ var
 require('sinon-as-promised');
 
 describe('#counter probes', () => {
-  var
+  let
     Plugin,
     plugin,
     esStub,
@@ -189,7 +189,7 @@ describe('#counter probes', () => {
   });
 
   it('should only save the counter after the given interval', (done) => {
-    var
+    const
       clock = lolex.install(),
       pluginConfig = {
         databases: ['foo'],

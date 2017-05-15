@@ -1,4 +1,4 @@
-var
+const
   should = require('should'),
   sinon = require('sinon'),
   proxyquire = require('proxyquire'),
@@ -9,7 +9,7 @@ var
 require('sinon-as-promised');
 
 describe('#watcher probes', () => {
-  var
+  let
     Plugin,
     plugin,
     esStub,
@@ -234,7 +234,7 @@ describe('#watcher probes', () => {
   });
 
   it('should collect the configured collectable fields', (done) => {
-    var
+    const
       document = {
         _id: 'someId',
         body: {
