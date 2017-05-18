@@ -38,7 +38,7 @@ Plugin allowing to add probes, collecting data and events to calculate data metr
 
 ## Installation
 
-Place the directory of the plugin in Kuzzle under the path `plugins/enabled`.
+Place the directory of the plugin must be placed under `plugins/available` and then a symlink should be created under `plugins/enabled`.
 
 ## General configuration
 
