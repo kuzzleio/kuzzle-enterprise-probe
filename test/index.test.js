@@ -1,4 +1,4 @@
-var
+const
   should = require('should'),
   sinon = require('sinon'),
   proxyquire = require('proxyquire'),
@@ -10,7 +10,7 @@ var
 require('sinon-as-promised');
 
 describe('#Testing index file', () => {
-  var
+  let
     Plugin,
     plugin,
     esStub,
@@ -56,13 +56,12 @@ describe('#Testing index file', () => {
     should(() => plugin.init({databases: ['foo:bar'], storageIndex: ''}, {}, false)).throw(/no storage index/);
   });
 
-  it('should enter dummy mode if no probe is set', () => {
+  it('should do nothing is no probe is set', () => {
     return plugin.init({
       databases: ['foo'],
       storageIndex: 'bar'
     }, fakeContext, false)
       .then(() => {
-        should(plugin.dummy).be.true();
         should(plugin.probes).be.empty();
         should(plugin.client).be.null();
 
@@ -73,31 +72,13 @@ describe('#Testing index file', () => {
         }, fakeContext, false);
       })
       .then(() => {
-        should(plugin.dummy).be.true();
         should(plugin.probes).be.empty();
         should(plugin.client).be.null();
       });
   });
 
-  it('should enter dummy mode when asked to', () => {
-    return plugin.init({
-      databases: ['foo'],
-      storageIndex: 'bar',
-      probes: {
-        foo: {
-          type: 'monitor',
-          hooks: ['foo:bar']
-        }
-      }
-    }, fakeContext, true).then(() => {
-      should(plugin.dummy).be.true();
-      should(plugin.probes).not.be.empty();
-      should(plugin.client).be.null();
-    });
-  });
-
   it('should prepare the DSL at startup', () => {
-    var
+    const
       stubRegister = sinon.stub().resolves({id: 'foobar'});
 
     fakeContext = {
@@ -169,7 +150,6 @@ describe('#Testing index file', () => {
         }
       }
     }, fakeContext, false).then(() => {
-      should(plugin.dummy).be.false();
       should(plugin.hooks['foo:bar']).match(['monitor', 'counter']);
       should(plugin.hooks['bar:baz']).be.eql('counter');
       should(plugin.hooks['baz:qux']).be.eql('counter');
@@ -179,7 +159,7 @@ describe('#Testing index file', () => {
   });
 
   it('should not reset the measure if an error during saving occurs', (done) => {
-    var
+    const
       clock = lolex.install(),
       pluginConfig = {
         databases: ['foo'],
@@ -254,7 +234,7 @@ describe('#Testing index file', () => {
   });
 
   it('should not call setInterval when an error occures during collection creation', (done) => {
-    var
+    const
       stub = sinon.stub().returns({
         indices: {
           exists: sinon.stub().resolves(false),

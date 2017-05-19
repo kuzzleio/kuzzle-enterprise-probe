@@ -1,4 +1,4 @@
-var
+const
   should = require('should'),
   sinon = require('sinon'),
   proxyquire = require('proxyquire'),
@@ -10,7 +10,7 @@ var
 require('sinon-as-promised');
 
 describe('#monitor probes', () => {
-  var
+  let
     Plugin,
     plugin,
     esStub,
@@ -76,7 +76,6 @@ describe('#monitor probes', () => {
         }
       }
     }, fakeContext, false).then(() => {
-      should(plugin.dummy).be.false();
       should(plugin.eventMapping.monitor['foo:bar']).match(['foo', 'qux']);
       should(plugin.eventMapping.monitor['bar:baz']).match(['qux']);
     });
@@ -97,7 +96,6 @@ describe('#monitor probes', () => {
         }
       }
     }, fakeContext, false).then(() => {
-      should(plugin.dummy).be.false();
       should(plugin.measures.foo).match({'foo:bar': 0});
       should(plugin.measures.qux).match({'foo:bar': 0, 'bar:baz': 0});
     });
@@ -136,7 +134,7 @@ describe('#monitor probes', () => {
   });
 
   it('should only save the measure after the given interval', (done) => {
-    var
+    const
       clock = lolex.install(),
       pluginConfig = {
         databases: ['foo'],

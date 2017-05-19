@@ -38,13 +38,7 @@ Plugin allowing to add probes, collecting data and events to calculate data metr
 
 ## Installation
 
-Using the command-line interface:
-
-```shell
-kuzzle plugins --install --path /absolute/path/to/this/plugin kuzzle-enterprise-probe
-```
-
-:warning: If Kuzzle is running inside a Docker container, you need to first make the plugin directory accessible from inside the container.
+Place the plugin directory under `plugins/available`, then create a symbolic link pointing to it under `plugins/enabled`.
 
 ## General configuration
 
@@ -52,7 +46,6 @@ After a fresh installation, the plugin configuration looks like this:
 
 ```json
 {
-  "path": "/absolute/path/kuzzle-enterprise-probe",
   "activated": true,
   "config":
    {
