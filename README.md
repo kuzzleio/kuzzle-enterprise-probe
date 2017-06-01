@@ -1,4 +1,3 @@
-
 # Table of Contents
 
 - [About](#about)
@@ -28,6 +27,7 @@
     - [Configuration](#configuration-3)
     - [Measure document](#measure-document-2)
     - [Adding a `sampler` probe](#adding-a-sampler-probe)
+
 
 # About
 
@@ -242,7 +242,7 @@ Probe configuration examples:
     "probe_watcher_1": {
       "type": "watcher",
       "index": "some index",
-      "collection": "some data collection",
+      "collection": "some collection",
       "filter": {},
       "collects": [
         "documentField",
@@ -270,7 +270,7 @@ Probe configuration examples:
     "probe_watcher_2": {
       "type": "watcher",
       "index": "some index",
-      "collection": "some data collection",
+      "collection": "some collection",
       "filter": {
         "term": {
           "uses": "KuzzleDSL"
@@ -412,7 +412,7 @@ Probe configuration examples:
     "probe_sampler": {
       "type": "sampler",
       "index": "some index",
-      "collection": "some data collection",
+      "collection": "some collection",
       "sampleSize": 1234,
       "filter": {},
       "collects": [

@@ -1,0 +1,60 @@
+version: '2'
+
+services:
+  proxy:
+    image: kuzzleio/proxy
+    ports:
+      - "7512:7512"
+      - "1883:1883"
+
+  kuzzle:
+    image: kuzzleio/kuzzle
+    command: sh -c 'chmod 755 /run.sh && /run.sh'
+    volumes:
+      - "./../kuzzle-enterprise-probe-listener/:/var/app/plugins/enabled/kuzzle-enterprise-probe-listener/"
+      - "./docker-compose/kuzzlerc:/etc/kuzzlerc"
+    depends_on:
+      - proxy
+      - redis
+      - elasticsearch
+    environment:
+      - kuzzle_services__db__host=elasticsearch
+      - kuzzle_services__internalCache__node__host=redis
+      - kuzzle_services__memoryStorage__node__host=redis
+      - kuzzle_services__proxyBroker__host=proxy
+
+  redis:
+    image: redis:3.2
+
+  elasticsearch:
+    image: elasticsearch:5.2
+    ports:
+      - "9200:9200"
+
+  kdc-proxy:
+    image: kuzzleio/proxy
+    ports:
+      - "7515:7512"
+
+  kdc-kuzzle:
+    image: kuzzleio/kuzzle
+    cap_add:
+      - SYS_PTRACE
+    depends_on:
+      - kdc-proxy
+      - kdc-redis
+      - kdc-elasticsearch
+    volumes:
+      - "./:/var/app/plugins/enabled/kuzzle-enterprise-probe/"
+    environment:
+      - kuzzle_services__db__host=kdc-elasticsearch
+      - kuzzle_services__internalCache__node__host=kdc-redis
+      - kuzzle_services__memoryStorage__node__host=kdc-redis
+      - kuzzle_services__proxyBroker__host=kdc-proxy
+      - NODE_ENV=production
+
+  kdc-redis:
+    image: redis:3.2
+
+  kdc-elasticsearch:
+    image: elasticsearch:5.0
