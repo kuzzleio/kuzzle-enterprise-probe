@@ -1,4 +1,3 @@
-
 # Table of Contents
 
 - [About](#about)
@@ -11,12 +10,10 @@
     - [Description](#description)
     - [Configuration](#configuration)
     - [Measure document](#measure-document)
-    - [Adding a `monitor` probe](#adding-a-monitor-probe)
   - [`counter` probes](#counter-probes)
     - [Description](#description-1)
     - [Configuration](#configuration-1)
     - [Measure document](#measure-document-1)
-    - [Adding a `counter` probe](#adding-a-counter-probe)
   - [`watcher` probes](#watcher-probes)
     - [Description](#description-2)
     - [Configuration](#configuration-2)
@@ -27,7 +24,7 @@
     - [Description](#description-3)
     - [Configuration](#configuration-3)
     - [Measure document](#measure-document-2)
-    - [Adding a `sampler` probe](#adding-a-sampler-probe)
+
 
 # About
 
@@ -49,9 +46,6 @@ After a fresh installation, the plugin configuration looks like this:
   "activated": true,
   "config":
    {
-     "threads": 1,
-     "loadedBy": "server",
-     "databases": [ "localhost:9200" ],
      "storageIndex": "measures",
      "probes": {}
    }
@@ -60,16 +54,7 @@ After a fresh installation, the plugin configuration looks like this:
 
 You may need to configure the following parameters:
 
-* `databases`: the list of Elasticsearch `host:port` where the probe measures will be stored
 * `storageIndex`: the index name under which the measures will be stored
-
-You can change these values by using the CLI:
-
-```shell
-kuzzle plugins --set '{ "databases": ["host1:port", "host2:port", "host...:port"]}' kuzzle-enterprise-probe
-```
-:warning: The number of threads must be strictly equal to 1, and this plugin can only be loaded by a Kuzzle server.
-
 
 ## Retrieving probe measures
 
@@ -134,22 +119,6 @@ The measure document will look like this:
 
 The `timestamp` field is automatically added, and mark the end of a measurement. It's encoded as the number of milliseconds since Epoch.
 
-### Adding a `monitor` probe
-
-Command-line interface example:
-
-```shell
-kuzzle plugins --set '{
-  "probes": {
-    "probe_monitor_1": {
-      "type": "monitor",
-      "interval": "10 minutes",
-      "hooks": ["some:event", "some:otherevent", "andyet:anotherone"]
-    }
-  }
-}' kuzzle-enterprise-probe
-```
-
 ## `counter` probes
 
 ### Description
@@ -204,23 +173,6 @@ The measure document will look like this:
 
 The `timestamp` field is automatically added, and mark the end of a measurement. It's encoded as the number of milliseconds since Epoch.
 
-### Adding a `counter` probe
-
-Command-line interface example:
-
-```shell
-kuzzle plugins --set '{
-  "probes": {
-    "probe_counter_1": {
-      "type": "counter",
-      "interval": "1h",
-      "increasers": ["list:of", "counterIncreasing:events"],
-      "decreasers": ["anotherlist:of", "counterDecreasing:events"]
-    }
-  }
-}' kuzzle-enterprise-probe
-```
-
 ## `watcher` probes
 
 ### Description
@@ -242,7 +194,7 @@ Probe configuration examples:
     "probe_watcher_1": {
       "type": "watcher",
       "index": "some index",
-      "collection": "some data collection",
+      "collection": "some collection",
       "filter": {},
       "collects": [
         "documentField",
@@ -270,7 +222,7 @@ Probe configuration examples:
     "probe_watcher_2": {
       "type": "watcher",
       "index": "some index",
-      "collection": "some data collection",
+      "collection": "some collection",
       "filter": {
         "term": {
           "uses": "KuzzleDSL"
@@ -348,44 +300,6 @@ Then, every 1 hour, a new measure document will be written, looking like this:
 
 The `timestamp` field is automatically added, and mark the end of a measurement. It's encoded as the number of milliseconds since Epoch.
 
-### Adding a `watcher` probe
-
-Command-line interface example:
-
-```shell
-kuzzle plugins --set '{
-  "probes": {
-    "probe_watcher_1": {
-      "index": "some index",
-      "collection": "some data collection",
-      "filter": {},
-      "collects": [
-        "documentField",
-        "a.nestedAttribute.using.JsonPath"
-      ],
-      "mapping": {
-        "_id": {"type": "string"},
-        "documentField": {"type": "string", "index": "not_analyzed"},
-        "a": {
-          "properties": {
-            "nestedAttribute": {
-              "properties": {
-                "using": {
-                  "properties" : {
-                    "JsonPath": {"type": "string"}
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      "interval": "10 minutes"
-    }
-  }
-}' kuzzle-enterprise-probe
-```
-
 ## `sampler` probes
 
 ### Description
@@ -412,7 +326,7 @@ Probe configuration examples:
     "probe_sampler": {
       "type": "sampler",
       "index": "some index",
-      "collection": "some data collection",
+      "collection": "some collection",
       "sampleSize": 1234,
       "filter": {},
       "collects": [
@@ -468,25 +382,3 @@ The measure document will look like this:
 ```
 
 The `timestamp` field is automatically added, and mark the end of a measurement. It's encoded as the number of milliseconds since Epoch.
-
-### Adding a `sampler` probe
-
-Command-line interface example:
-
-```shell
-kuzzle plugins --set '{
-  "probes": {
-    "probe_sampler": {
-      "index": "some index",
-      "collection": "some data collection",
-      "sampleSize": 1234,
-      "filter": {},
-      "collects": [
-        "documentField",
-        "a.nestedAttribute.using.JsonPath"
-      ],
-      "interval": "10 minutes"
-    }
-  }
-}' kuzzle-enterprise-probe
-```

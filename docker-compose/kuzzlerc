@@ -1,0 +1,7 @@
+{
+  "plugins": {
+   "kuzzle-enterprise-probe-listener": {
+      "threads": 1
+    }
+  }
+}
