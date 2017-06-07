@@ -10,7 +10,6 @@ services:
   kuzzle:
     image: kuzzleio/kuzzle
     volumes:
-      - "./../kuzzle/:/var/app/"
       - "./../kuzzle-enterprise-probe-listener/:/var/app/plugins/enabled/kuzzle-enterprise-probe-listener/"
       - "./docker-compose/kuzzlerc:/etc/kuzzlerc"
     depends_on:
