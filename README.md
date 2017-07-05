@@ -28,8 +28,33 @@
 
 # About
 
-Plugin allowing to add probes, collecting data and events to calculate data metrics.
+A common need when using Kuzzle in production, is to have insights about it and perform analytics on events occurring during an instance's lifecycle.
+A common supply for this need is to allow attaching probes to the production instance and send the events somewhere. At Kuzzle, we use Kuzzle to monitor Kuzzle.
 
+
+```
++------------------------+                   +--------------------------+
+|                        |                   |                          |
+|   Production Kuzzle    |                   |   Kuzzle Data Collector  |
+|                        |                   |                          |
+|     +------------+     |                   |       +-----------+      |
+|     |            |     |                   |       |           |      |
+|     |  Listener  +----------------------------------> Probes   |      |
+|     |            |     |                   |       |           |      |
+|     +------------+     |                   |       +-----------+      |
+|                        |                   |                          |
++------------------------+                   +--------------------------+
+```
+
+This plugins (the "Probes" plugin in the image) transforms a Kuzzle instance into a Kuzzle Data Collector, which is the one that receives the events from the listeners installed on the Kuzzle instance in production.
+
+The "Listener" plugin listens to events raised by the hooks specified in its configuration.
+
+To avoid performance hits, the "Listener" (https://github.com/kuzzleio/kuzzle-enterprise-probe-listener)  plugin in the Production instance is threaded. This, in addition to running the KDC on a dedicated machine, makes the probing workflow impact-less to the Production instance.
+
+Both the "Probes" and the "Listener" plugins, can share the same configuration file (which can be hosted on a common repo). Fields specific to one plugin are ignored by the other.
+
+This repo includes a docker-compose file allowing to launch a monitored Kuzzle stack along with the corresponding KDC.
 
 # Plugin configuration
 
@@ -58,12 +83,13 @@ You may need to configure the following parameters:
 
 ## Retrieving probe measures
 
-Measures are stored in the Elasticsearch instances listed in the `databases` parameter in the probe general configuration.
-
 The index used is the one configured under the `storageIndex` configuration parameter.
 
 Each probe creates a new collection, using the probe name as the collection name, and stores its measurements in it.
 
+The Listener plugin notifies the Probes each time one of the specified hooks is triggered. The Probes plugin, on the other side, is in charge of sampling these events and aggregating them in _measures_.
+
+Measures are generally defined by an `interval`, which defines the pace at which the KDC writes a value into the storage layer.
 
 # Probes description
 
@@ -71,7 +97,7 @@ Each probe creates a new collection, using the probe name as the collection name
 
 ### Description
 
-`monitor` probes are basic event counter, used to monitor Kuzzle activity.
+`monitor` probes are basic event counters, used to monitor Kuzzle activity.
 
 Each measure is independent from each other, meaning each counter is reset at the start of a new measurement.
 
@@ -117,13 +143,13 @@ The measure document will look like this:
 }
 ```
 
-The `timestamp` field is automatically added, and mark the end of a measurement. It's encoded as the number of milliseconds since Epoch.
+The `timestamp` field is automatically added, and marks the end of a measurement. It's encoded as the number of milliseconds since Epoch.
 
 ## `counter` probes
 
 ### Description
 
-`counter` probes aggregates multiple fired events into a single measurement counter.  
+`counter` probes aggregate multiple fired events into a single measurement counter.  
 
 Each measure is cumulative, meaning counters are kept for the entire Kuzzle uptime, without ever being reset.
 
@@ -171,18 +197,18 @@ The measure document will look like this:
 }
 ```
 
-The `timestamp` field is automatically added, and mark the end of a measurement. It's encoded as the number of milliseconds since Epoch.
+The `timestamp` field is automatically added, and marks the end of a measurement. It's encoded as the number of milliseconds since Epoch.
 
 ## `watcher` probes
 
 ### Description
 
-Watch documents and messages activity, counting them or retrieving part of their content.  
-Filters can be added to focus on particular documents and/or messages, and a probe can only monitor one index-collection pair at a time                            
+`watcher` probes watch documents and messages activity, counting them or retrieving part of their content.  
+Filters can be added to focus on particular documents and/or messages, and a probe can only monitor one index-collection pair at a time
 
 Each measure is independent from each other, meaning each watcher probe is reset at the start of a new measurement.
 
-:warning: Current limitation: due to the way Kuzzle handle documents, only newly created documents can be watched with a `create` or a `createOrReplace` action. This will be fixed in the future.
+:warning: Current limitation: due to the way Kuzzle handles documents, only newly created documents can be watched with a `create` or a `createOrReplace` action. This will be fixed in the future.
 
 ### Configuration
 
@@ -241,8 +267,8 @@ Parameters rundown:
 - `interval` configures the measurement save interval. The following formats are accepted:
   - `"none"`: no interval, each listened event will create a new measure document
   - `"duration"`: a string in human readable format, using the [ms conversion library](https://www.npmjs.com/package/ms)
-- `collects` configures the probe to collect document/message data. This parameter can be:
-  - empty, null or undefined: no data will be collected, only the number of matched documents/messages will be reported                               
+- `collects` tells the probe which parts of the matched documents/messages to collect. This parameter can be:
+  - empty, null or undefined: no data will be collected, only the number of matched documents/messages will be reported
   - a wildcard (`*`): the entire document/message will be collected         
   - an array listing the document/message attributes to collect, as JSON paths
 - `filter` configures what documents/messages will be watched:
@@ -304,13 +330,13 @@ The `timestamp` field is automatically added, and mark the end of a measurement.
 
 ### Description
 
-Sampler probes are similar to [watcher probes](#watcher-probes), but instead of collecting every document/message matching the configured probe, this probe retrieves only a statistical sample of documents/messages.  
+Sampler probes are similar to [watcher probes](#watcher-probes), but instead of collecting every document/message matching the configured probe, they retrieve only a statistical sample of documents/messages.  
 The sampler probe guarantees a statistically evenly distributed sample, meaning all documents and messages have the same probability to enter the sample.  
 
 The "sampleSize", "collects" and "interval" parameters are required.  
 The sample size should be large enough and the duration long enough for the sample to have meaning statistically speaking.
 
-Filters can be added to focus on particular documents and/or messages, and a probe can only monitor one index-collection pair at a time                            
+Filters can be added to focus on particular documents and/or messages, and a probe can only monitor one index-collection pair at a time
 
 Each measure is independent from each other, meaning each watcher probe is reset at the start of a new measurement.
 
