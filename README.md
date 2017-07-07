@@ -46,7 +46,7 @@ A common supply for this need is to allow attaching probes to the production ins
 +------------------------+                   +--------------------------+
 ```
 
-This plugins (the "Probes" plugin in the image) transforms a Kuzzle instance into a Kuzzle Data Collector, which is the one that receives the events from the listeners installed on the Kuzzle instance in production.
+This plugin (the "Probes" plugin in the image) transforms a Kuzzle instance into a Kuzzle Data Collector, which is the one that receives the events from the listeners installed on the Kuzzle instance in production.
 
 The "Listener" plugin listens to events raised by the hooks specified in its configuration.
 
@@ -89,7 +89,7 @@ The Listener plugin notifies the Probes each time one of the specified hooks is 
 
 Measures are generally defined by an `interval`, which defines the pace at which the KDC writes a value into the storage layer.
 
-Each time a measure is saved in the persistence layer, a custom event is triggered with name `saveMeasure` and the measure object as the payload.
+Each time a measure is saved in the persistence layer, a custom event is triggered with the name `saveMeasure` (thus resulting in `plugin-<plugin-name>:saveMeasure`) and the measure object as the payload.
 
 # Probes description
 
