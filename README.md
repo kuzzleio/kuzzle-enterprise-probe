@@ -50,8 +50,6 @@ This plugins (the "Probes" plugin in the image) transforms a Kuzzle instance int
 
 The "Listener" plugin listens to events raised by the hooks specified in its configuration.
 
-To avoid performance hits, the "Listener" (https://github.com/kuzzleio/kuzzle-enterprise-probe-listener)  plugin in the Production instance is threaded. This, in addition to running the KDC on a dedicated machine, makes the probing workflow impact-less to the Production instance.
-
 Both the "Probes" and the "Listener" plugins, can share the same configuration file (which can be hosted on a common repo). Fields specific to one plugin are ignored by the other.
 
 This repo includes a docker-compose file allowing to launch a monitored Kuzzle stack along with the corresponding KDC.
@@ -90,6 +88,8 @@ Each probe creates a new collection, using the probe name as the collection name
 The Listener plugin notifies the Probes each time one of the specified hooks is triggered. The Probes plugin, on the other side, is in charge of sampling these events and aggregating them in _measures_.
 
 Measures are generally defined by an `interval`, which defines the pace at which the KDC writes a value into the storage layer.
+
+Each time a measure is saved in the persistence layer, a custom event is triggered with name `saveMeasure` and the measure object as the payload.
 
 # Probes description
 
