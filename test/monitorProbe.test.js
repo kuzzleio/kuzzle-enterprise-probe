@@ -2,33 +2,25 @@ const
   should = require('should'),
   sinon = require('sinon'),
   proxyquire = require('proxyquire'),
-  lolex = require('lolex'),
   StubContext = require('./stubs/context.stub'),
-  StubElasticsearch = require('./stubs/elasticsearch.stub'),
+  Request = require('kuzzle-common-objects').Request,
+  Bluebird = require('bluebird'),
   longTimeout = require('long-timeout');
-
-require('sinon-as-promised');
 
 describe('#monitor probes', () => {
   let
     Plugin,
     plugin,
-    esStub,
     fakeContext,
     setIntervalSpy;
 
   beforeEach(() => {
     setIntervalSpy = sinon.spy(longTimeout, 'setInterval');
-    esStub = new StubElasticsearch();
     Plugin = proxyquire('../lib/index', {
-      'elasticsearch': {
-        Client: esStub
-      },
       'long-timeout': longTimeout
     });
 
     plugin = new Plugin();
-    esStub.reset();
     fakeContext = new StubContext();
   });
 
@@ -41,7 +33,6 @@ describe('#monitor probes', () => {
 
   it('should initialize probes according to their configuration', () => {
     return plugin.init({
-      databases: ['foo'],
       storageIndex: 'bar',
       probes: {
         foo: {
@@ -63,7 +54,6 @@ describe('#monitor probes', () => {
 
   it('should initialize the events mapping properly', () => {
     return plugin.init({
-      databases: ['foo'],
       storageIndex: 'bar',
       probes: {
         foo: {
@@ -83,7 +73,6 @@ describe('#monitor probes', () => {
 
   it('should initialize the measures object properly', () => {
     return plugin.init({
-      databases: ['foo'],
       storageIndex: 'bar',
       probes: {
         foo: {
@@ -103,7 +92,6 @@ describe('#monitor probes', () => {
 
   it('should save immediately a measure if no interval is set in the probe', (done) => {
     plugin.init({
-      databases: ['foo'],
       storageIndex: 'bar',
       probes: {
         foo: {
@@ -112,77 +100,98 @@ describe('#monitor probes', () => {
         }
       }
     }, fakeContext).then(() => {
-      sinon.stub(plugin.client, 'create').resolves();
-      plugin.monitor('foo:bar');
-      should(plugin.client.create.calledOnce).be.true();
-      should(plugin.client.create.calledWithMatch({
-        index: 'bar',
-        type: 'foo',
+      plugin.monitor(new Request({
         body: {
-          'foo:bar': 1
+          event: 'foo:bar'
         }
-      })).be.true();
+      }));
 
-      plugin.client.create.restore();
+      should(fakeContext.accessors.execute.calledOnce).be.true();
+      should(fakeContext.accessors.execute.args[0][0]).be.instanceof(Request);
+      should(fakeContext.accessors.execute.args[0][0].input.resource.index).be.eql('bar');
+      should(fakeContext.accessors.execute.args[0][0].input.resource.collection).be.eql('foo');
+      should(fakeContext.accessors.execute.args[0][0].input.controller).be.eql('document');
+      should(fakeContext.accessors.execute.args[0][0].input.action).be.eql('create');
+      should(fakeContext.accessors.execute.args[0][0].input.body['foo:bar']).be.eql(1);
+      should(fakeContext.accessors.execute.args[0][0].input.body.hasOwnProperty('timestamp')).be.true();
 
       // measure should have been reset
       setTimeout(() => {
-        should(plugin.measures.foo['foo:bar']).be.eql(0);
-        done();
+        try {
+          should(plugin.measures.foo['foo:bar']).be.eql(0);
+          done();
+        }
+        catch (e) {
+          done(e);
+        }
       }, 0);
     });
   });
 
   it('should only save the measure after the given interval', (done) => {
-    const
-      clock = lolex.install(),
-      pluginConfig = {
-        databases: ['foo'],
-        storageIndex: 'bar',
-        probes: {
-          foo: {
-            type: 'monitor',
-            hooks: ['foo:bar'],
-            interval: '1s'
-          }
+    this.timeout = 500;
+
+    fakeContext.accessors.execute = sinon.stub();
+    fakeContext.accessors.execute
+      .onFirstCall().returns(Bluebird.resolve({result: true}))
+      .onSecondCall().returns(Bluebird.resolve({result: {collections: ['foo']}}))
+      .onThirdCall().returns(Bluebird.resolve({result: 'someResult'}));
+
+    plugin.init({
+      storageIndex: 'bar',
+      probes: {
+        foo: {
+          type: 'monitor',
+          hooks: ['foo:bar'],
+          interval: 250
         }
-      };
-
-    plugin.init(pluginConfig, fakeContext)
+      }
+    }, fakeContext)
+      .then(() => plugin.startProbes())
       .then(() => {
-        sinon.stub(plugin.client, 'create').resolves();
+        fakeContext.accessors.execute = sinon.stub().returns(Bluebird.resolve());
 
-        plugin.monitor('foo:bar');
-        should(plugin.client.create.called).be.false();
-
-        clock.next();
-        should(plugin.client.create.calledOnce).be.true();
-        should(plugin.client.create.calledWithMatch({
-          index: 'bar',
-          type: 'foo',
+        plugin.monitor(new Request({
           body: {
-            'foo:bar': 1
+            event: 'foo:bar'
           }
-        })).be.true();
+        }));
 
-        clock.uninstall();
-        plugin.client.create.restore();
+        should(fakeContext.accessors.execute.called).be.false();
+
         setTimeout(() => {
-          try {
-            should(plugin.measures.foo['foo:bar']).be.eql(0);
-          } catch (e) {
-            return done(e);
-          }
+          should(fakeContext.accessors.execute.calledOnce).be.true();
+          should(fakeContext.accessors.execute.args[0][0]).be.instanceof(Request);
+          should(fakeContext.accessors.execute.args[0][0].input.resource.index).be.eql('bar');
+          should(fakeContext.accessors.execute.args[0][0].input.resource.collection).be.eql('foo');
+          should(fakeContext.accessors.execute.args[0][0].input.controller).be.eql('document');
+          should(fakeContext.accessors.execute.args[0][0].input.action).be.eql('create');
+          should(fakeContext.accessors.execute.args[0][0].input.body['foo:bar']).be.eql(1);
+          should(fakeContext.accessors.execute.args[0][0].input.body.hasOwnProperty('timestamp')).be.true();
 
-          done();
-        }, 0);
+          setTimeout(() => {
+            try {
+              should(plugin.measures.foo['foo:bar']).be.eql(0);
+            } catch (e) {
+              return done(e);
+            }
+
+            done();
+          }, 0);
+        }, 300);
       })
       .catch(err => done(err));
   });
 
   it('should create a collection with timestamp and event fields mapping', (done) => {
+    fakeContext.accessors.execute = sinon.stub();
+    fakeContext.accessors.execute
+      .onFirstCall().returns(Bluebird.resolve({result: true}))
+      .onSecondCall().returns(Bluebird.resolve({result: {collections: ['foo']}}))
+      .onThirdCall().returns(Bluebird.resolve({result: 'someResult'}))
+      .onCall(4).returns(Bluebird.resolve({result: 'someResult'}));
+
     plugin.init({
-      databases: ['foo'],
       storageIndex: 'storageIndex',
       probes: {
         fooprobe: {
@@ -191,26 +200,22 @@ describe('#monitor probes', () => {
           interval: 1000
         }
       }
-    }, fakeContext);
+    }, fakeContext)
+      .then(() => plugin.startProbes());
 
     setTimeout(() => {
-      should(plugin.client.indices.putMapping.calledOnce).be.true();
-      should(plugin.client.indices.putMapping.firstCall.args[0]).match({
-        index: 'storageIndex',
-        type: 'fooprobe',
-        updateAllTypes: false,
-        body: {
-          properties: {
-            timestamp: {
-              type: 'date',
-              format: 'epoch_millis'
-            },
-            'foo:bar': {
-              type: 'integer'
-            },
-            'bar:foo': {
-              type: 'integer'
-            }
+      should(fakeContext.accessors.execute.callCount).be.eql(4);
+      should(fakeContext.accessors.execute.args[3][0].input.body).match({
+        properties: {
+          timestamp: {
+            type: 'date',
+            format: 'epoch_millis'
+          },
+          'foo:bar': {
+            type: 'integer'
+          },
+          'bar:foo': {
+            type: 'integer'
           }
         }
       });

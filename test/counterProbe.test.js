@@ -2,33 +2,25 @@ const
   should = require('should'),
   sinon = require('sinon'),
   proxyquire = require('proxyquire'),
-  lolex = require('lolex'),
   StubContext = require('./stubs/context.stub'),
-  StubElasticsearch = require('./stubs/elasticsearch.stub'),
-  longTimeout = require('long-timeout');
-
-require('sinon-as-promised');
+  longTimeout = require('long-timeout'),
+  Request = require('kuzzle-common-objects').Request,
+  Bluebird = require('bluebird');
 
 describe('#counter probes', () => {
   let
     Plugin,
     plugin,
-    esStub,
     fakeContext,
     setIntervalSpy;
 
   beforeEach(() => {
     setIntervalSpy = sinon.spy(longTimeout, 'setInterval');
-    esStub = new StubElasticsearch();
     Plugin = proxyquire('../lib/index', {
-      'elasticsearch': {
-        Client: esStub
-      },
       'long-timeout': longTimeout
     });
 
     plugin = new Plugin();
-    esStub.reset();
     fakeContext = new StubContext();
   });
 
@@ -41,7 +33,6 @@ describe('#counter probes', () => {
 
   it('should initialize probes according to their configuration', () => {
     return plugin.init({
-      databases: ['foo'],
       storageIndex: 'bar',
       probes: {
         bar: {
@@ -65,7 +56,6 @@ describe('#counter probes', () => {
 
   it('should initialize the events mapping properly', () => {
     return plugin.init({
-      databases: ['foo'],
       storageIndex: 'bar',
       probes: {
         bar: {
@@ -90,7 +80,6 @@ describe('#counter probes', () => {
 
   it('should initialize the measures object properly', () => {
     return plugin.init({
-      databases: ['foo'],
       storageIndex: 'bar',
       probes: {
         bar: {
@@ -112,7 +101,6 @@ describe('#counter probes', () => {
 
   it('should save immediately an increasing counter if no interval is set', (done) => {
     plugin.init({
-      databases: ['foo'],
       storageIndex: 'bar',
       probes: {
         foo: {
@@ -122,18 +110,20 @@ describe('#counter probes', () => {
         }
       }
     }, fakeContext).then(() => {
-      sinon.stub(plugin.client, 'create').resolves();
-      plugin.counter('foo:bar');
-      should(plugin.client.create.calledOnce).be.true();
-      should(plugin.client.create.calledWithMatch({
-        index: 'bar',
-        type: 'foo',
+      plugin.counter(new Request({
         body: {
-          'count': 1
+          event: 'foo:bar'
         }
-      })).be.true();
+      }));
 
-      plugin.client.create.restore();
+      should(fakeContext.accessors.execute.calledOnce).be.true();
+      should(fakeContext.accessors.execute.args[0][0]).be.instanceof(Request);
+      should(fakeContext.accessors.execute.args[0][0].input.resource.index).be.eql('bar');
+      should(fakeContext.accessors.execute.args[0][0].input.resource.collection).be.eql('foo');
+      should(fakeContext.accessors.execute.args[0][0].input.controller).be.eql('document');
+      should(fakeContext.accessors.execute.args[0][0].input.action).be.eql('create');
+      should(fakeContext.accessors.execute.args[0][0].input.body.count).be.eql(1);
+      should(fakeContext.accessors.execute.args[0][0].input.body.hasOwnProperty('timestamp')).be.true();
 
       // measure should never be reset
       setTimeout(() => {
@@ -143,9 +133,8 @@ describe('#counter probes', () => {
     });
   });
 
-  it('should save immediately an decreasing counter if no interval is set', (done) => {
+  it('should save immediately a decreasing counter if no interval is set', (done) => {
     plugin.init({
-      databases: ['foo'],
       storageIndex: 'bar',
       probes: {
         foo: {
@@ -155,28 +144,36 @@ describe('#counter probes', () => {
         }
       }
     }, fakeContext).then(() => {
-      sinon.stub(plugin.client, 'create').resolves();
-      plugin.counter('qux:foo');
-      should(plugin.client.create.calledOnce).be.true();
-      should(plugin.client.create.calledWithMatch({
-        index: 'bar',
-        type: 'foo',
+      plugin.counter(new Request({
         body: {
-          'count': -1
+          event: 'qux:foo'
         }
-      })).be.true();
+      }));
 
-      plugin.counter('baz:qux');
-      should(plugin.client.create.calledTwice).be.true();
-      should(plugin.client.create.calledWithMatch({
-        index: 'bar',
-        type: 'foo',
+      should(fakeContext.accessors.execute.calledOnce).be.true();
+      should(fakeContext.accessors.execute.args[0][0]).be.instanceof(Request);
+      should(fakeContext.accessors.execute.args[0][0].input.resource.index).be.eql('bar');
+      should(fakeContext.accessors.execute.args[0][0].input.resource.collection).be.eql('foo');
+      should(fakeContext.accessors.execute.args[0][0].input.controller).be.eql('document');
+      should(fakeContext.accessors.execute.args[0][0].input.action).be.eql('create');
+      should(fakeContext.accessors.execute.args[0][0].input.body.count).be.eql(-1);
+      should(fakeContext.accessors.execute.args[0][0].input.body.hasOwnProperty('timestamp')).be.true();
+
+      plugin.counter(new Request({
         body: {
-          'count': -2
+          event: 'baz:qux'
         }
-      })).be.true();
+      }));
 
-      plugin.client.create.restore();
+      should(fakeContext.accessors.execute.calledTwice).be.true();
+      should(fakeContext.accessors.execute.args[1][0]).be.instanceof(Request);
+      should(fakeContext.accessors.execute.args[1][0].input.resource.index).be.eql('bar');
+      should(fakeContext.accessors.execute.args[1][0].input.resource.collection).be.eql('foo');
+      should(fakeContext.accessors.execute.args[1][0].input.controller).be.eql('document');
+      should(fakeContext.accessors.execute.args[1][0].input.action).be.eql('create');
+      should(fakeContext.accessors.execute.args[1][0].input.body.count).be.eql(-2);
+      should(fakeContext.accessors.execute.args[1][0].input.body.hasOwnProperty('timestamp')).be.true();
+
 
       // measure should never be reset
       setTimeout(() => {
@@ -187,54 +184,79 @@ describe('#counter probes', () => {
   });
 
   it('should only save the counter after the given interval', (done) => {
+    this.timeout = 500;
+
     const
-      clock = lolex.install(),
       pluginConfig = {
-        databases: ['foo'],
         storageIndex: 'bar',
         probes: {
           foo: {
             type: 'counter',
             increasers: ['foo:bar', 'bar:baz'],
             decreasers: ['baz:qux', 'qux:foo'],
-            interval: 1000
+            interval: 250
           }
         }
       };
 
+    fakeContext.accessors.execute = sinon.stub();
+    fakeContext.accessors.execute
+      .onFirstCall().returns(Bluebird.resolve({result: true}))
+      .onSecondCall().returns(Bluebird.resolve({result: {collections: ['foo']}}))
+      .onThirdCall().returns(Bluebird.resolve({result: 'someResult'}));
+
     plugin.init(pluginConfig, fakeContext)
+      .then(() => plugin.startProbes())
       .then(() => {
-        sinon.stub(plugin.client, 'create').resolves();
+        fakeContext.accessors.execute = sinon.stub().returns(Bluebird.resolve());
 
         // 2 increasers + 1 decreaser => count must be equal to 1
-        plugin.counter('foo:bar');
-        plugin.counter('bar:baz');
-        plugin.counter('qux:foo');
-        should(plugin.client.create.called).be.false();
-
-        clock.next();
-        should(plugin.client.create.calledOnce).be.true();
-        should(plugin.client.create.calledWithMatch({
-          index: 'bar',
-          type: 'foo',
+        plugin.counter(new Request({
           body: {
-            count: 1
+            event: 'foo:bar'
           }
-        })).be.true();
+        }));
+        plugin.counter(new Request({
+          body: {
+            event: 'bar:baz'
+          }
+        }));
+        plugin.counter(new Request({
+          body: {
+            event: 'qux:foo'
+          }
+        }));
 
-        clock.uninstall();
-        plugin.client.create.restore();
+        should(fakeContext.accessors.execute.called).be.false();
+
         setTimeout(() => {
-          should(plugin.measures.foo.count).be.eql(1);
-          done();
-        }, 0);
+          should(fakeContext.accessors.execute.calledOnce).be.true();
+          should(fakeContext.accessors.execute.args[0][0]).be.instanceof(Request);
+          should(fakeContext.accessors.execute.args[0][0].input.resource.index).be.eql('bar');
+          should(fakeContext.accessors.execute.args[0][0].input.resource.collection).be.eql('foo');
+          should(fakeContext.accessors.execute.args[0][0].input.controller).be.eql('document');
+          should(fakeContext.accessors.execute.args[0][0].input.action).be.eql('create');
+          should(fakeContext.accessors.execute.args[0][0].input.body.count).be.eql(1);
+          should(fakeContext.accessors.execute.args[0][0].input.body.hasOwnProperty('timestamp')).be.true();
+
+          setTimeout(() => {
+            should(plugin.measures.foo.count).be.eql(1);
+            done();
+          }, 0);
+        }, 300);
       })
       .catch(err => done(err));
   });
 
   it('should create a collection with timestamp and count mapping', (done) => {
+    fakeContext.accessors.execute = sinon.stub();
+    fakeContext.accessors.execute
+      .onFirstCall().returns(Bluebird.resolve({result: true}))
+      .onSecondCall().returns(Bluebird.resolve({result: {collections: ['foo']}}))
+      .onThirdCall().returns(Bluebird.resolve({result: 'someResult'}))
+      .onCall(4).returns(Bluebird.resolve({result: 'someResult'}));
+
     plugin.init({
-      databases: ['foo'],
       storageIndex: 'storageIndex',
       probes: {
         fooprobe: {
@@ -244,23 +266,19 @@ describe('#counter probes', () => {
           interval: 1000
         }
       }
-    }, fakeContext);
+    }, fakeContext)
+      .then(() => plugin.startProbes());
 
     setTimeout(() => {
-      should(plugin.client.indices.putMapping.calledOnce).be.true();
-      should(plugin.client.indices.putMapping.firstCall.args[0]).match({
-        index: 'storageIndex',
-        type: 'fooprobe',
-        updateAllTypes: false,
-        body: {
-          properties: {
-            timestamp: {
-              type: 'date',
-              format: 'epoch_millis'
-            },
-            count: {
-              type: 'integer'
-            }
+      should(fakeContext.accessors.execute.callCount).be.eql(4);
+      should(fakeContext.accessors.execute.args[3][0].input.body).match({
+        properties: {
+          timestamp: {
+            type: 'date',
+            format: 'epoch_millis'
+          },
+          count: {
+            type: 'integer'
           }
         }
       });

@@ -3,31 +3,24 @@ const
   sinon = require('sinon'),
   proxyquire = require('proxyquire'),
   StubContext = require('./stubs/context.stub'),
-  StubElasticsearch = require('./stubs/elasticsearch.stub'),
-  longTimeout = require('long-timeout');
-
-require('sinon-as-promised');
+  longTimeout = require('long-timeout'),
+  Request = require('kuzzle-common-objects').Request,
+  Bluebird = require('bluebird');
 
 describe('#watcher probes', () => {
   let
     Plugin,
     plugin,
-    esStub,
     fakeContext,
     setIntervalSpy;
 
   beforeEach(() => {
     setIntervalSpy = sinon.spy(longTimeout, 'setInterval');
-    esStub = new StubElasticsearch();
     Plugin = proxyquire('../lib/index', {
-      'elasticsearch': {
-        Client: esStub
-      },
       'long-timeout': longTimeout
     });
 
     plugin = new Plugin();
-    esStub.reset();
     fakeContext = new StubContext();
   });
 
@@ -40,14 +33,13 @@ describe('#watcher probes', () => {
 
   it('should initialize probes according to their configuration', () => {
     plugin.init({
-      databases: ['foo'],
       storageIndex: 'bar',
       probes: {
         foo: {
           type: 'watcher',
           index: 'foo',
           collection: 'bar',
-          filter: {term: { 'foo': 'bar'}},
+          filter: {term: {'foo': 'bar'}},
           collects: '*',
           interval: 'none'
         },
@@ -55,7 +47,7 @@ describe('#watcher probes', () => {
           type: 'watcher',
           index: 'foo',
           collection: 'bar',
-          filter: {term: { 'foo': 'bar'}},
+          filter: {term: {'foo': 'bar'}},
           interval: '1m'
         },
         baz: {
@@ -78,36 +70,36 @@ describe('#watcher probes', () => {
           type: 'watcher',
           index: undefined,
           collection: 'bar',
-          filter: {term: { 'foo': 'bar'}},
+          filter: {term: {'foo': 'bar'}},
           collects: '*'
         },
         badProbe2: {
           type: 'watcher',
           index: 'foo',
           collection: undefined,
-          filter: {term: { 'foo': 'bar'}},
+          filter: {term: {'foo': 'bar'}},
           collects: '*'
         },
         badProbe3: {
           type: 'watcher',
           index: 'foo',
           collection: 'bar',
-          filter: {term: { 'foo': 'bar'}},
+          filter: {term: {'foo': 'bar'}},
           collects: 'foobar'
         },
         badProbe4: {
           type: 'watcher',
           index: 'foo',
           collection: 'bar',
-          filter: {term: { 'foo': 'bar'}},
+          filter: {term: {'foo': 'bar'}},
           collects: 123
         },
         badProbe5: {
           type: 'watcher',
           index: 'foo',
           collection: 'bar',
-          filter: {term: { 'foo': 'bar'}},
-          collects: { 'foo': 'bar' }
+          filter: {term: {'foo': 'bar'}},
+          collects: {'foo': 'bar'}
         }
       }
     }, fakeContext, false);
@@ -125,7 +117,6 @@ describe('#watcher probes', () => {
 
   it('should initialize the measures object properly', () => {
     return plugin.init({
-      databases: ['foo'],
       storageIndex: 'bar',
       probes: {
         foo: {
@@ -155,7 +146,6 @@ describe('#watcher probes', () => {
 
   it('should save immediately if no interval is set (watcher with collected content)', (done) => {
     plugin.init({
-      databases: ['foo'],
       storageIndex: 'storageIndex',
       probes: {
         fooprobe: {
@@ -165,34 +155,32 @@ describe('#watcher probes', () => {
           collects: '*'
         }
       }
-    }, fakeContext).then(() => {
-      sinon.stub(plugin.dsl, 'test').resolves(['filterId']);
-      sinon.stub(plugin.client, 'bulk').resolves();
-      plugin.watcher({
-        input: {
-          resource: {
-            index: 'foo',
-            collection: 'bar'
-          },
+    }, fakeContext)
+      .then(() => {
+        sinon.stub(plugin.dsl, 'test').returns(['filterId']);
+        fakeContext.accessors.execute = sinon.stub().returns(Bluebird.resolve());
+
+        plugin.watcher(new Request({
           body: {
-            foo: 'bar'
+            payload: {
+              data: {
+                index: 'foo',
+                collection: 'bar',
+                body: {
+                  foo: 'bar'
+                }
+              }
+            }
           }
-        }
+        }));
       });
-    });
 
     setTimeout(() => {
       should(plugin.dsl.test.calledOnce).be.true();
       should(plugin.dsl.test.calledWithMatch('foo', 'bar', {foo: 'bar'}, undefined));
-      should(plugin.client.bulk.calledOnce).be.true();
-      should(plugin.client.bulk.firstCall.args[0]).match({
-        body: [
-          {index: {_index: 'storageIndex', _type: 'fooprobe'}},
-          {content: {foo: 'bar'}}
-        ]
-      });
 
-      plugin.client.bulk.restore();
+      should(fakeContext.accessors.execute.calledOnce).be.true();
+
       plugin.dsl.test.restore();
 
       // measure should be reset
@@ -205,7 +193,6 @@ describe('#watcher probes', () => {
 
   it('should save immediately if no interval is set (watcher counting documents)', (done) => {
     plugin.init({
-      databases: ['foo'],
       storageIndex: 'storageIndex',
       probes: {
         fooprobe: {
@@ -215,23 +202,29 @@ describe('#watcher probes', () => {
         }
       }
     }, fakeContext).then(() => {
-      sinon.stub(plugin.dsl, 'test').resolves(['filterId']);
-      sinon.stub(plugin.client, 'create').resolves();
-      plugin.watcher({input: {resource: {index: 'foo', collection: 'bar'}, body: {foo: 'bar'}}});
+      sinon.stub(plugin.dsl, 'test').returns(['filterId']);
+      fakeContext.accessors.execute = sinon.stub().returns(Bluebird.resolve());
+
+      plugin.watcher(new Request({
+        body: {
+          payload: {
+            data: {
+              index: 'foo',
+              collection: 'bar',
+              body: {
+                foo: 'bar'
+              }
+            }
+          }
+        }
+      }));
 
       setTimeout(() => {
         should(plugin.dsl.test.calledOnce).be.true();
         should(plugin.dsl.test.calledWithMatch('foo', 'bar', {foo: 'bar'}, undefined));
-        should(plugin.client.create.calledOnce).be.true();
-        should(plugin.client.create.firstCall.args[0]).match({
-          index: 'storageIndex',
-          type: 'fooprobe',
-          body: {
-            'count': plugin.measures.fooprobe.count
-          }
-        });
 
-        plugin.client.create.restore();
+        should(fakeContext.accessors.execute.calledOnce).be.true();
+
         plugin.dsl.test.restore();
 
         // measure should be reset
@@ -258,7 +251,6 @@ describe('#watcher probes', () => {
       };
 
     plugin.init({
-      databases: ['foo'],
       storageIndex: 'storageIndex',
       probes: {
         fooprobe: {
@@ -269,32 +261,27 @@ describe('#watcher probes', () => {
         }
       }
     }, fakeContext).then(() => {
-      sinon.stub(plugin.dsl, 'test').resolves(['filterId']);
-      sinon.stub(plugin.client, 'bulk').resolves();
-      plugin.watcher({input: {resource: {index: 'foo', collection: 'bar', _id: documentId}, body: documentBody}});
+      sinon.stub(plugin.dsl, 'test').returns(['filterId']);
+      plugin.watcher(new Request({
+        body: {
+          payload: {
+            data: {
+              index: 'foo',
+              collection: 'bar',
+              _id: documentId,
+              body: documentBody
+            }
+          }
+        }
+      }));
     });
 
     setTimeout(() => {
       should(plugin.dsl.test.calledOnce).be.true();
       should(plugin.dsl.test.calledWithMatch('foo', 'bar', {foo: 'bar'}, undefined));
-      should(plugin.client.bulk.calledOnce).be.true();
-      should(plugin.client.bulk.firstCall.args[0]).match({
-        body: [
-          {index: {_index: 'storageIndex', _type: 'fooprobe'}},
-          {content: {
-            _id: documentId,
-            foobar: 'foobar',
-            foo: {
-              baz: 'baz',
-              qux: 'qux'
-            },
-            barfoo: 'barfoo'}}
-        ]
-      });
-      should(plugin.client.bulk.firstCall.args[0].body[1].content.quxbar).be.undefined();
-      should(plugin.client.bulk.firstCall.args[0].body[1].content.foo.bar).be.undefined();
 
-      plugin.client.bulk.restore();
+      should(fakeContext.accessors.execute.calledOnce).be.true();
+
       plugin.dsl.test.restore();
 
       // measure should be reset
@@ -306,8 +293,14 @@ describe('#watcher probes', () => {
   });
 
   it('should create a collection with timestamp and count mapping if no mapping is provided and collects is empty', (done) => {
+    fakeContext.accessors.execute = sinon.stub();
+    fakeContext.accessors.execute
+      .onFirstCall().returns(Bluebird.resolve({result: true}))
+      .onSecondCall().returns(Bluebird.resolve({result: {collections: ['foo']}}))
+      .onThirdCall().returns(Bluebird.resolve({result: 'someResult'}))
+      .onCall(4).returns(Bluebird.resolve({result: 'someResult'}));
+
     plugin.init({
-      databases: ['foo'],
       storageIndex: 'storageIndex',
       probes: {
         fooprobe: {
@@ -316,24 +309,20 @@ describe('#watcher probes', () => {
           collection: 'bar'
         }
       }
-    }, fakeContext);
+    }, fakeContext)
+      .then(() => plugin.startProbes());
 
 
     setTimeout(() => {
-      should(plugin.client.indices.putMapping.calledOnce).be.true();
-      should(plugin.client.indices.putMapping.firstCall.args[0]).match({
-        index: 'storageIndex',
-        type: 'fooprobe',
-        updateAllTypes: false,
-        body: {
-          properties: {
-            timestamp: {
-              type: 'date',
-              format: 'epoch_millis'
-            },
-            count: {
-              type: 'integer'
-            }
+      should(fakeContext.accessors.execute.callCount).be.eql(4);
+      should(fakeContext.accessors.execute.args[3][0].input.body).match({
+        properties: {
+          timestamp: {
+            type: 'date',
+            format: 'epoch_millis'
+          },
+          count: {
+            type: 'integer'
           }
         }
       });
@@ -343,8 +332,14 @@ describe('#watcher probes', () => {
   });
 
   it('should create a collection with timestamp mapping if no mapping is provided and collects is not empty', (done) => {
+    fakeContext.accessors.execute = sinon.stub();
+    fakeContext.accessors.execute
+      .onFirstCall().returns(Bluebird.resolve({result: true}))
+      .onSecondCall().returns(Bluebird.resolve({result: {collections: ['foo']}}))
+      .onThirdCall().returns(Bluebird.resolve({result: 'someResult'}))
+      .onCall(4).returns(Bluebird.resolve({result: 'someResult'}));
+
     plugin.init({
-      databases: ['foo'],
       storageIndex: 'storageIndex',
       probes: {
         fooprobe: {
@@ -354,21 +349,17 @@ describe('#watcher probes', () => {
           collects: ['foo']
         }
       }
-    }, fakeContext);
+    }, fakeContext)
+      .then(() => plugin.startProbes());
 
 
     setTimeout(() => {
-      should(plugin.client.indices.putMapping.calledOnce).be.true();
-      should(plugin.client.indices.putMapping.firstCall.args[0]).match({
-        index: 'storageIndex',
-        type: 'fooprobe',
-        updateAllTypes: false,
-        body: {
-          properties: {
-            timestamp: {
-              type: 'date',
-              format: 'epoch_millis'
-            }
+      should(fakeContext.accessors.execute.callCount).be.eql(4);
+      should(fakeContext.accessors.execute.args[3][0].input.body).match({
+        properties: {
+          timestamp: {
+            type: 'date',
+            format: 'epoch_millis'
           }
         }
       });
@@ -378,8 +369,14 @@ describe('#watcher probes', () => {
   });
 
   it('should create a collection with timestamp and provided mapping mapping if a mapping is provided', (done) => {
+    fakeContext.accessors.execute = sinon.stub();
+    fakeContext.accessors.execute
+      .onFirstCall().returns(Bluebird.resolve({result: true}))
+      .onSecondCall().returns(Bluebird.resolve({result: {collections: ['foo']}}))
+      .onThirdCall().returns(Bluebird.resolve({result: 'someResult'}))
+      .onCall(4).returns(Bluebird.resolve({result: 'someResult'}));
+
     plugin.init({
-      databases: ['foo'],
       storageIndex: 'storageIndex',
       probes: {
         fooprobe: {
@@ -390,65 +387,25 @@ describe('#watcher probes', () => {
           mapping: {foo: 'bar'}
         }
       }
-    }, fakeContext);
+    }, fakeContext)
+      .then(() => plugin.startProbes());
 
 
     setTimeout(() => {
-      should(plugin.client.indices.putMapping.calledOnce).be.true();
-      should(plugin.client.indices.putMapping.firstCall.args[0]).match({
-        index: 'storageIndex',
-        type: 'fooprobe',
-        updateAllTypes: false,
-        body: {
-          properties: {
-            timestamp: {
-              type: 'date',
-              format: 'epoch_millis'
-            },
-            content: {
-              properties: {
-                foo: 'bar'
-              }
+      should(fakeContext.accessors.execute.callCount).be.eql(4);
+      should(fakeContext.accessors.execute.args[3][0].input.body).match({
+        properties: {
+          timestamp: {
+            type: 'date',
+            format: 'epoch_millis'
+          },
+          content: {
+            properties: {
+              foo: 'bar'
             }
           }
         }
       });
-      done();
-    }, 20);
-  });
-
-  it('should not create a collection if it already exists', (done) => {
-    plugin.init({
-      databases: ['foo'],
-      storageIndex: 'storageIndex',
-      probes: {
-        fooprobe: {
-          type: 'watcher',
-          index: 'foo',
-          collection: 'bar',
-          collects: ['foo'],
-          mapping: {foo: 'bar'}
-        }
-      }
-    }, fakeContext);
-
-    sinon.stub(plugin.client, 'bulk').resolves();
-    sinon.stub(plugin.client, 'create').resolves();
-
-    plugin.client.indices.getMapping.resolves({
-      storageIndex: {
-        mappings: {
-          fooprobe: 'exists'
-        }
-      }
-    });
-
-    setTimeout(() => {
-      should(plugin.client.indices.putMapping.callCount).be.eql(0);
-
-      plugin.client.bulk.restore();
-      plugin.client.create.restore();
-
       done();
     }, 20);
   });
