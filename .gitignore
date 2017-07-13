@@ -35,5 +35,7 @@ node_modules
 # IDE
 .idea
 
-# Custom docker compose
+# Custom docker compose files
 docker-compose-custom.yml
+kuzzlerc-custom
+kdcrc-custom
