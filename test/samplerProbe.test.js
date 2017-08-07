@@ -3,31 +3,24 @@ const
   sinon = require('sinon'),
   proxyquire = require('proxyquire'),
   StubContext = require('./stubs/context.stub'),
-  StubElasticsearch = require('./stubs/elasticsearch.stub'),
-  longTimeout = require('long-timeout');
-
-require('sinon-as-promised');
+  longTimeout = require('long-timeout'),
+  Request = require('kuzzle-common-objects').Request,
+  Bluebird = require('bluebird');
 
 describe('#sampler probes', () => {
   let
     Plugin,
     plugin,
-    esStub,
     fakeContext,
     setIntervalSpy;
 
   beforeEach(() => {
     setIntervalSpy = sinon.spy(longTimeout, 'setInterval');
-    esStub = new StubElasticsearch();
     Plugin = proxyquire('../lib/index', {
-      'elasticsearch': {
-        Client: esStub
-      },
       'long-timeout': longTimeout
     });
 
     plugin = new Plugin();
-    esStub.reset();
     fakeContext = new StubContext();
   });
 
@@ -40,8 +33,6 @@ describe('#sampler probes', () => {
 
   it('should initialize probes according to their configuration', () => {
     return plugin.init({
-      databases: ['foo'],
-      storageIndex: 'bar',
       probes: {
         foo: {
           type: 'sampler',
@@ -194,7 +185,6 @@ describe('#sampler probes', () => {
 
   it('should initialize the measures object properly', () => {
     return plugin.init({
-      databases: ['foo'],
       storageIndex: 'bar',
       probes: {
         foo: {
@@ -214,6 +204,13 @@ describe('#sampler probes', () => {
   it('should collect a sample of the provided documents', (done) => {
     let
       i;
+
+    fakeContext.accessors.execute = sinon.stub();
+    fakeContext.accessors.execute
+      .onFirstCall().returns(Bluebird.resolve({result: true}))
+      .onSecondCall().returns(Bluebird.resolve({result: {collections: ['foo']}}))
+      .onThirdCall().returns(Bluebird.resolve({result: 'someResult'}));
+
     const
       documentId = 'someId',
       documentBody = {
@@ -228,7 +225,6 @@ describe('#sampler probes', () => {
       };
 
     plugin.init({
-      databases: ['foo'],
       storageIndex: 'storageIndex',
       probes: {
         fooprobe: {
@@ -237,51 +233,56 @@ describe('#sampler probes', () => {
           collection: 'bar',
           sampleSize: 3,
           collects: ['foobar', 'foo.baz', 'foo.qux', 'barfoo'],
-          interval: '1ms'
+          interval: 250
         }
       }
-    }, fakeContext).then(() => {
-      sinon.stub(plugin.dsl, 'test').resolves(['filterId']);
-      sinon.stub(plugin.client, 'bulk').resolves();
+    }, fakeContext)
+      .then(() => plugin.startProbes())
+      .then(() => {
+        fakeContext.accessors.execute = sinon.stub().returns(Bluebird.resolve());
+        sinon.stub(plugin.dsl, 'test').returns(['filterId']);
 
-      for (i = 0; i < 100; i++) {
-        plugin.sampler({input: {resource: {index: 'foo', collection: 'bar', _id: documentId}, body: documentBody}});
-      }
+        for (i = 0; i < 100; i++) {
+          plugin.sampler(new Request({
+            body: {
+              payload: {
+                data: {
+                  index: 'foo',
+                  collection: 'bar',
+                  _id: documentId,
+                  body: documentBody
+                }
+              }
+            }
+          }));
+        }
 
-      setTimeout(() => {
-        should(plugin.dsl.test.callCount).be.eql(100);
-        should(plugin.dsl.test.alwaysCalledWithMatch('foo', 'bar', {foo: 'bar'}, undefined));
-        should(plugin.client.bulk.calledOnce).be.true();
-        should(plugin.client.bulk.firstCall.args[0].body.length).be.eql(6); // 3 documents + 3 bulk headers
-        should(plugin.client.bulk.firstCall.args[0].body[1]).match({
-          content: {
-            _id: documentId,
-            foobar: 'foobar',
-            foo: {
-              baz: 'baz',
-              qux: 'qux'
-            },
-            barfoo: 'barfoo'}
-        });
-
-        should(plugin.client.bulk.firstCall.args[0].body[1].content.quxbar).be.undefined();
-        should(plugin.client.bulk.firstCall.args[0].body[1].content.foo.bar).be.undefined();
-
-        plugin.client.bulk.restore();
-        plugin.dsl.test.restore();
-
-        // measure should be reset
         setTimeout(() => {
-          should(plugin.measures.fooprobe.content).be.empty();
-          done();
-        }, 20);
-      }, 20);
-    });
+          should(plugin.dsl.test.callCount).be.eql(100);
+          should(plugin.dsl.test.alwaysCalledWithMatch('foo', 'bar', {foo: 'bar'}, undefined));
+
+          should(fakeContext.accessors.execute.calledOnce).be.true();
+
+          plugin.dsl.test.restore();
+
+          // measure should be reset
+          setTimeout(() => {
+            should(plugin.measures.fooprobe.content).be.empty();
+            done();
+          }, 20);
+        }, 300);
+      });
   });
 
   it('should create a collection with timestamp mapping if no mapping is provided and collects is not empty', (done) => {
+    fakeContext.accessors.execute = sinon.stub();
+    fakeContext.accessors.execute
+      .onFirstCall().returns(Bluebird.resolve({result: true}))
+      .onSecondCall().returns(Bluebird.resolve({result: {collections: ['foo']}}))
+      .onThirdCall().returns(Bluebird.resolve({result: 'someResult'}))
+      .onCall(4).returns(Bluebird.resolve({result: 'someResult'}));
+
     plugin.init({
-      databases: ['foo'],
       storageIndex: 'storageIndex',
       probes: {
         fooprobe: {
@@ -293,21 +294,17 @@ describe('#sampler probes', () => {
           interval: '1ms'
         }
       }
-    }, fakeContext);
+    }, fakeContext)
+      .then(() => plugin.startProbes());
 
 
     setTimeout(() => {
-      should(plugin.client.indices.putMapping.calledOnce).be.true();
-      should(plugin.client.indices.putMapping.firstCall.args[0]).match({
-        index: 'storageIndex',
-        type: 'fooprobe',
-        updateAllTypes: false,
-        body: {
-          properties: {
-            timestamp: {
-              type: 'date',
-              format: 'epoch_millis'
-            }
+      should(fakeContext.accessors.execute.callCount).be.eql(4);
+      should(fakeContext.accessors.execute.args[3][0].input.body).match({
+        properties: {
+          timestamp: {
+            type: 'date',
+            format: 'epoch_millis'
           }
         }
       });
@@ -317,8 +314,14 @@ describe('#sampler probes', () => {
   });
 
   it('should create a collection with timestamp and provided mapping if a mapping is provided', (done) => {
+    fakeContext.accessors.execute = sinon.stub();
+    fakeContext.accessors.execute
+      .onFirstCall().returns(Bluebird.resolve({result: true}))
+      .onSecondCall().returns(Bluebird.resolve({result: {collections: ['foo']}}))
+      .onThirdCall().returns(Bluebird.resolve({result: 'someResult'}))
+      .onCall(4).returns(Bluebird.resolve({result: 'someResult'}));
+
     plugin.init({
-      databases: ['foo'],
       storageIndex: 'storageIndex',
       probes: {
         fooprobe: {
@@ -331,25 +334,21 @@ describe('#sampler probes', () => {
           interval: '1ms'
         }
       }
-    }, fakeContext);
+    }, fakeContext)
+      .then(() => plugin.startProbes());
 
 
     setTimeout(() => {
-      should(plugin.client.indices.putMapping.calledOnce).be.true();
-      should(plugin.client.indices.putMapping.firstCall.args[0]).match({
-        index: 'storageIndex',
-        type: 'fooprobe',
-        updateAllTypes: false,
-        body: {
-          properties: {
-            timestamp: {
-              type: 'date',
-              format: 'epoch_millis'
-            },
-            content: {
-              properties: {
-                foo: 'bar'
-              }
+      should(fakeContext.accessors.execute.callCount).be.eql(4);
+      should(fakeContext.accessors.execute.args[3][0].input.body).match({
+        properties: {
+          timestamp: {
+            type: 'date',
+            format: 'epoch_millis'
+          },
+          content: {
+            properties: {
+              foo: 'bar'
             }
           }
         }
