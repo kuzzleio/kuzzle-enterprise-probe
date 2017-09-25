@@ -133,6 +133,35 @@ describe('#counter probes', () => {
     });
   });
 
+  it('should not save the measure (but trigger the event) if the probe is set volatile', (done) => {
+    plugin.init({
+      storageIndex: 'bar',
+      probes: {
+        foo: {
+          type: 'counter',
+          increasers: ['foo:bar', 'bar:baz'],
+          decreasers: ['baz:qux', 'qux:foo'],
+          volatile: true
+        }
+      }
+    }, fakeContext)
+      .then(() => {
+        plugin.counter(new Request({
+          body: {
+            event: 'foo:bar'
+          }
+        }));
+
+        should(fakeContext.accessors.execute.calledOnce).be.false();
+
+        setTimeout(() => {
+          should(fakeContext.accessors.trigger.calledOnce).be.true();
+          should(plugin.measures.foo.count).be.eql(1);
+          done();
+        }, 0);
+      });
+  });
+
   it('should save immediately a decreasing counter if no interval is set', (done) => {
     plugin.init({
       storageIndex: 'bar',

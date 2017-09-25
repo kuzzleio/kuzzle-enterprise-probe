@@ -7,7 +7,7 @@ module.exports = function () {
   return {
     accessors: {
       execute: sandbox.stub().returns(Bluebird.resolve({result: 'someResult'})),
-      trigger: function () {}
+      trigger: sandbox.stub()
     },
     constructors: {
       Request: function (data) {
