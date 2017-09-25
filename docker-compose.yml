@@ -1,34 +1,26 @@
 version: '2'
 
 services:
-  proxy:
-    image: kuzzleio/proxy
-    ports:
-      - "7512:7512"
-      - "1883:1883"
-
   kuzzle:
     image: kuzzleio/kuzzle
+    ports:
+      - "7512:7512"
     volumes:
       - "./../kuzzle-enterprise-probe-listener/:/var/app/plugins/enabled/kuzzle-enterprise-probe-listener/"
       - "./docker-compose/kuzzlerc:/etc/kuzzlerc"
     depends_on:
-      - proxy
       - redis
       - elasticsearch
     environment:
       - kuzzle_services__db__client__host=http://elasticsearch:9200
       - kuzzle_services__internalCache__node__host=redis
       - kuzzle_services__memoryStorage__node__host=redis
-      - kuzzle_services__proxyBroker__host=proxy
 
   redis:
     image: redis:3.2
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:5.4.1
-    ports:
-      - "9200:9200"
     environment:
       - cluster.name=kuzzle
       # disable xpack
@@ -37,21 +29,16 @@ services:
       - xpack.graph.enabled=false
       - xpack.watcher.enabled=false
 
-  kdc-proxy:
-    image: kuzzleio/proxy
-    ports:
-      - "7515:7512"
-
   kdc-kuzzle:
     image: kuzzleio/kuzzle
+    ports:
+      - "7515:7512"
+      - "9229:9229"
     cap_add:
       - SYS_PTRACE
     depends_on:
-      - kdc-proxy
       - kdc-redis
       - kdc-elasticsearch
-    ports:
-      - "9229:9229"
     volumes:
       - "./:/var/app/plugins/enabled/kuzzle-enterprise-probe/"
       - "./docker-compose/kdcrc:/etc/kuzzlerc"
@@ -59,7 +46,6 @@ services:
       - kuzzle_services__db__client__host=http://kdc-elasticsearch:9200
       - kuzzle_services__internalCache__node__host=kdc-redis
       - kuzzle_services__memoryStorage__node__host=kdc-redis
-      - kuzzle_services__proxyBroker__host=kdc-proxy
       - NODE_ENV=production
 
   kdc-redis:
@@ -67,8 +53,6 @@ services:
 
   kdc-elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:5.4.1
-    ports:
-      - "9201:9200"
     environment:
       - cluster.name=kuzzle
       # disable xpack

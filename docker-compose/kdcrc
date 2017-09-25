@@ -1,3 +1,28 @@
 {
-
+  "plugins": {
+    "kuzzle-enterprise-probe": {
+      "storageIndex": "probestest",
+      "probes": {
+        "probe_counter_1": {
+          "type": "counter",
+          "increasers": ["document:beforeCreate"],
+          "decreasers": []
+        },
+        "probe_monitor_1": {
+          "type": "monitor",
+          "hooks": ["document:beforeDelete"]
+        },
+        "probe_watcher_1": {
+          "type":"watcher",
+          "index": "toto",
+          "collection": "titi",
+          "controller": "realtime",
+          "action": "publish",
+          "collects": [
+            "echo", "number"
+          ]
+        }
+      }
+    }
+  }
 }
