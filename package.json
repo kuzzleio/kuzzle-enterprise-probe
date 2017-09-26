@@ -28,11 +28,12 @@
   "license": "SEE LICENSE IN LICENSE",
   "dependencies": {
     "bluebird": "^3.5.0",
+    "debug": "^3.0.1",
+    "kuzzle-common-objects": "^3.0.6",
     "lodash": "^4.12.0",
     "long-timeout": "^0.1.1",
     "ms": "^0.7.1",
-    "random-js": "^1.0.8",
-    "kuzzle-common-objects": "^3.0.6"
+    "random-js": "^1.0.8"
   },
   "devDependencies": {
     "eslint": "^2.9.0",
