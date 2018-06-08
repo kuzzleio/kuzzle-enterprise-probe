@@ -22,13 +22,12 @@
 
 const
   sinon = require('sinon'),
-  Bluebird = require('bluebird'),
   Request = require('kuzzle-common-objects').Request;
 
 module.exports = function () {
   return {
     accessors: {
-      execute: sinon.stub().returns(Bluebird.resolve({result: 'someResult'})),
+      execute: sinon.stub().resolves({result: 'someResult'}),
       trigger: sinon.stub()
     },
     constructors: {
@@ -37,10 +36,18 @@ module.exports = function () {
       },
       Dsl: function () {
         return {
-          register: () => Bluebird.resolve({id: 'filterId'}),
+          register: sinon.stub().resolves({id: 'filterId'}),
           test: () => {}
         };
       }
+    },
+    log: {
+      error: sinon.stub(),
+      warn: sinon.stub(),
+      info: sinon.stub(),
+      verbose: sinon.stub(),
+      debug: sinon.stub(),
+      silly: sinon.stub()
     },
     reset: () => sinon.reset()
   };

@@ -26,8 +26,7 @@ const
   proxyquire = require('proxyquire'),
   StubContext = require('./stubs/context.stub'),
   longTimeout = require('long-timeout'),
-  Request = require('kuzzle-common-objects').Request,
-  Bluebird = require('bluebird');
+  Request = require('kuzzle-common-objects').Request;
 
 describe('#sampler probes', () => {
   let
@@ -229,9 +228,9 @@ describe('#sampler probes', () => {
 
     fakeContext.accessors.execute = sinon.stub();
     fakeContext.accessors.execute
-      .onFirstCall().returns(Bluebird.resolve({result: true}))
-      .onSecondCall().returns(Bluebird.resolve({result: {collections: ['foo']}}))
-      .onThirdCall().returns(Bluebird.resolve({result: 'someResult'}));
+      .onFirstCall().resolves({result: true})
+      .onSecondCall().resolves({result: {collections: ['foo']}})
+      .onThirdCall().resolves({result: 'someResult'});
 
     const
       documentId = 'someId',
@@ -261,7 +260,7 @@ describe('#sampler probes', () => {
     }, fakeContext)
       .then(() => plugin.startProbes())
       .then(() => {
-        fakeContext.accessors.execute = sinon.stub().returns(Bluebird.resolve());
+        fakeContext.accessors.execute = sinon.stub().resolves();
         sinon.stub(plugin.dsl, 'test').returns(['filterId']);
 
         for (i = 0; i < 100; i++) {
@@ -299,10 +298,10 @@ describe('#sampler probes', () => {
   it('should create a collection with timestamp mapping if no mapping is provided and collects is not empty', (done) => {
     fakeContext.accessors.execute = sinon.stub();
     fakeContext.accessors.execute
-      .onFirstCall().returns(Bluebird.resolve({result: true}))
-      .onSecondCall().returns(Bluebird.resolve({result: {collections: ['foo']}}))
-      .onThirdCall().returns(Bluebird.resolve({result: 'someResult'}))
-      .onCall(4).returns(Bluebird.resolve({result: 'someResult'}));
+      .onFirstCall().resolves({result: true})
+      .onSecondCall().resolves({result: {collections: ['foo']}})
+      .onThirdCall().resolves({result: 'someResult'})
+      .onCall(4).resolves({result: 'someResult'});
 
     plugin.init({
       storageIndex: 'storageIndex',
@@ -338,10 +337,10 @@ describe('#sampler probes', () => {
   it('should create a collection with timestamp and provided mapping if a mapping is provided', (done) => {
     fakeContext.accessors.execute = sinon.stub();
     fakeContext.accessors.execute
-      .onFirstCall().returns(Bluebird.resolve({result: true}))
-      .onSecondCall().returns(Bluebird.resolve({result: {collections: ['foo']}}))
-      .onThirdCall().returns(Bluebird.resolve({result: 'someResult'}))
-      .onCall(4).returns(Bluebird.resolve({result: 'someResult'}));
+      .onFirstCall().resolves({result: true})
+      .onSecondCall().resolves({result: {collections: ['foo']}})
+      .onThirdCall().resolves({result: 'someResult'})
+      .onCall(4).resolves({result: 'someResult'});
 
     plugin.init({
       storageIndex: 'storageIndex',

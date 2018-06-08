@@ -26,8 +26,7 @@ const
   proxyquire = require('proxyquire'),
   StubContext = require('./stubs/context.stub'),
   longTimeout = require('long-timeout'),
-  Request = require('kuzzle-common-objects').Request,
-  Bluebird = require('bluebird');
+  Request = require('kuzzle-common-objects').Request;
 
 describe('#watcher probes', () => {
   let
@@ -180,7 +179,7 @@ describe('#watcher probes', () => {
     }, fakeContext)
       .then(() => {
         sinon.stub(plugin.dsl, 'test').returns(['filterId']);
-        fakeContext.accessors.execute = sinon.stub().returns(Bluebird.resolve());
+        fakeContext.accessors.execute = sinon.stub().resolves();
 
         plugin.watcher(new Request({
           body: {
@@ -225,7 +224,7 @@ describe('#watcher probes', () => {
       }
     }, fakeContext).then(() => {
       sinon.stub(plugin.dsl, 'test').returns(['filterId']);
-      fakeContext.accessors.execute = sinon.stub().returns(Bluebird.resolve());
+      fakeContext.accessors.execute = sinon.stub().resolves();
 
       plugin.watcher(new Request({
         body: {
@@ -317,10 +316,10 @@ describe('#watcher probes', () => {
   it('should create a collection with timestamp and count mapping if no mapping is provided and collects is empty', (done) => {
     fakeContext.accessors.execute = sinon.stub();
     fakeContext.accessors.execute
-      .onFirstCall().returns(Bluebird.resolve({result: true}))
-      .onSecondCall().returns(Bluebird.resolve({result: {collections: ['foo']}}))
-      .onThirdCall().returns(Bluebird.resolve({result: 'someResult'}))
-      .onCall(4).returns(Bluebird.resolve({result: 'someResult'}));
+      .onFirstCall().resolves({result: true})
+      .onSecondCall().resolves({result: {collections: ['foo']}})
+      .onThirdCall().resolves({result: 'someResult'})
+      .onCall(4).resolves({result: 'someResult'});
 
     plugin.init({
       storageIndex: 'storageIndex',
@@ -356,10 +355,10 @@ describe('#watcher probes', () => {
   it('should create a collection with timestamp mapping if no mapping is provided and collects is not empty', (done) => {
     fakeContext.accessors.execute = sinon.stub();
     fakeContext.accessors.execute
-      .onFirstCall().returns(Bluebird.resolve({result: true}))
-      .onSecondCall().returns(Bluebird.resolve({result: {collections: ['foo']}}))
-      .onThirdCall().returns(Bluebird.resolve({result: 'someResult'}))
-      .onCall(4).returns(Bluebird.resolve({result: 'someResult'}));
+      .onFirstCall().resolves({result: true})
+      .onSecondCall().resolves({result: {collections: ['foo']}})
+      .onThirdCall().resolves({result: 'someResult'})
+      .onCall(4).resolves({result: 'someResult'});
 
     plugin.init({
       storageIndex: 'storageIndex',
@@ -393,10 +392,10 @@ describe('#watcher probes', () => {
   it('should create a collection with timestamp and provided mapping mapping if a mapping is provided', (done) => {
     fakeContext.accessors.execute = sinon.stub();
     fakeContext.accessors.execute
-      .onFirstCall().returns(Bluebird.resolve({result: true}))
-      .onSecondCall().returns(Bluebird.resolve({result: {collections: ['foo']}}))
-      .onThirdCall().returns(Bluebird.resolve({result: 'someResult'}))
-      .onCall(4).returns(Bluebird.resolve({result: 'someResult'}));
+      .onFirstCall().resolves({result: true})
+      .onSecondCall().resolves({result: {collections: ['foo']}})
+      .onThirdCall().resolves({result: 'someResult'})
+      .onCall(4).resolves({result: 'someResult'});
 
     plugin.init({
       storageIndex: 'storageIndex',
