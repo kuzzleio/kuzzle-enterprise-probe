@@ -33,18 +33,13 @@ describe('#Testing index file', () => {
   let
     Plugin,
     plugin,
-    sandbox,
     fakeContext,
     setIntervalSpy;
 
-  before(() => {
-    sandbox = sinon.sandbox.create();
-  });
-
   beforeEach(() => {
-    sandbox.reset();
+    sinon.reset();
 
-    setIntervalSpy = sandbox.spy(longTimeout, 'setInterval');
+    setIntervalSpy = sinon.spy(longTimeout, 'setInterval');
     Plugin = proxyquire('../lib/index', {
       'long-timeout': longTimeout
     });

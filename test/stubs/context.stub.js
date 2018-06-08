@@ -21,15 +21,15 @@
 
 
 const
-  sandbox = require('sinon').sandbox.create(),
+  sinon = require('sinon'),
   Bluebird = require('bluebird'),
   Request = require('kuzzle-common-objects').Request;
 
 module.exports = function () {
   return {
     accessors: {
-      execute: sandbox.stub().returns(Bluebird.resolve({result: 'someResult'})),
-      trigger: sandbox.stub()
+      execute: sinon.stub().returns(Bluebird.resolve({result: 'someResult'})),
+      trigger: sinon.stub()
     },
     constructors: {
       Request: function (data) {
@@ -42,6 +42,6 @@ module.exports = function () {
         };
       }
     },
-    reset: () => sandbox.reset()
+    reset: () => sinon.reset()
   };
 };
