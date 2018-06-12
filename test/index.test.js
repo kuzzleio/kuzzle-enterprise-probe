@@ -24,6 +24,7 @@ const
   should = require('should'),
   sinon = require('sinon'),
   proxyquire = require('proxyquire'),
+  Bluebird = require('bluebird'),
   StubContext = require('./stubs/context.stub'),
   Request = require('kuzzle-common-objects').Request,
   longTimeout = require('long-timeout');
@@ -68,9 +69,9 @@ describe('#Testing index file', () => {
   });
 
   it('should do nothing if no probe is set', () => {
-    return plugin.init({
+    return Bluebird.resolve(plugin.init({
       storageIndex: 'bar'
-    }, fakeContext)
+    }, fakeContext))
       .then(() => {
         should(plugin.probes).be.empty();
 
