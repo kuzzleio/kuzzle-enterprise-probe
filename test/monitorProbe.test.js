@@ -60,17 +60,31 @@ describe('#monitor probes', () => {
           type: 'monitor',
           hooks: ['foo:bar'],
           interval: 'none'
-        },
-        badProbe: {
-          type: 'monitor',
-          hooks: ['foo:bar', 'bar:baz'],
-          interval: 'Never gonna give you up'
         }
       }
     }, fakeContext, false).then(() => {
       should(plugin.probes.foo).not.be.empty().and.have.property('interval').undefined();
-      should(plugin.probes.badProbe).be.undefined();
     });
+  });
+
+  it('should throw an error if interval parameter is misconfigured', () => {
+    return should(() => {
+      plugin.init({
+        storageIndex: 'bar',
+        probes: {
+          foo: {
+            type: 'monitor',
+            hooks: ['foo:bar'],
+            interval: 'none'
+          },
+          badProbe: {
+            type: 'monitor',
+            hooks: ['foo:bar', 'bar:baz'],
+            interval: 'Never gonna give you up'
+          }
+        }
+      }, fakeContext, false);
+    }).throw('plugin-probe: [probe: badProbe] Invalid interval "undefined".');
   });
 
   it('should initialize the events mapping properly', () => {

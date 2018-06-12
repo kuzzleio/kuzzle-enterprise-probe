@@ -61,18 +61,53 @@ describe('#counter probes', () => {
           increasers: ['bar:baz', 'foo:bar', 'foo:bar'],
           decreasers: ['baz:qux'],
           interval: '1 hour'
-        },
-        badProbe: {
-          type: 'counter',
-          increasers: ['baz:qux'],
-          decreasers: ['baz:qux'],
-          interval: '1m'
         }
       }
     }, fakeContext, false).then(() => {
       should(plugin.probes.bar).not.be.empty().and.have.property('interval').eql(60 * 60 * 1000);
-      should(plugin.probes.badProbe).be.undefined();
     });
+  });
+
+  it('should throw an error if there is no increaser configured', () => {
+    should(plugin.init({
+      storageIndex: 'bar',
+      probes: {
+        badProbe: {
+          type: 'counter',
+          decreasers: ['baz:qux'],
+          interval: '1m'
+        }
+      }
+    }, fakeContext, false)).be.rejectedWith('plugin-probe: [probe: badProbe] "increasers" parameter missing"');
+  });
+
+  it('should reject the promise if there is no decreaser configured', () => {
+    should(plugin.init({
+      storageIndex: 'bar',
+      probes: {
+        badProbe: {
+          type: 'counter',
+          increasers: ['baz:qux'],
+          interval: '1m'
+        }
+      }
+    }, fakeContext, false)).be.rejectedWith('plugin-probe: [probe: badProbe] "decreasers" parameter missing"');
+  });
+
+  it('should reject the promise if the same event is set for increaser and decreaser', () => {
+    return should(() => {
+      plugin.init({
+        storageIndex: 'bar',
+        probes: {
+          badProbe: {
+            type: 'counter',
+            increasers: ['baz:qux'],
+            decreasers: ['baz:qux'],
+            interval: '1m'
+          }
+        }
+      }, fakeContext, false);
+    }).throw('plugin-probe: [probe: badProbe] Configuration error: an event cannot be set both to increase and to decrease a counter');
   });
 
   it('should initialize the events mapping properly', () => {

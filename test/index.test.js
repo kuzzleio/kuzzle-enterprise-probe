@@ -114,19 +114,23 @@ describe('#Testing index file', () => {
     });
   });
 
-  it('should ignore probes without any type defined', () => {
-    return plugin.init({
-      storageIndex: 'bar',
-      probes: {
-        badProbe: {
-          index: 'foo',
-          collection: 'bar',
-          hooks: ['foo:bar', 'data:beforePublish']
+  it('should throw an error if a probe if configured without any type defined', () => {
+    return should(() => {
+      plugin.init({
+        storageIndex: 'bar',
+        probes: {
+          foo: {
+            type: 'monitor',
+            hooks: ['foo:bar']
+          },
+          badProbe: {
+            index: 'foo',
+            collection: 'bar',
+            hooks: ['foo:bar', 'data:beforePublish']
+          }
         }
-      }
-    }, fakeContext).then(() => {
-      should(plugin.probes.badProbe).be.undefined();
-    });
+      }, fakeContext);
+    }).throw('plugin-probe: [probe: badProbe] "type" parameter missing"');
   });
 
   it('should not reset the measure if an error during saving occurs', (done) => {
