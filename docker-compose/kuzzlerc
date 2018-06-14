@@ -1,6 +1,6 @@
 {
   "plugins": {
-   "kuzzle-enterprise-probe-listener": {
+   "kuzzle-plugin-probe-listener": {
       "threads": 1,
       "probes": {
         "probe_counter_1": {

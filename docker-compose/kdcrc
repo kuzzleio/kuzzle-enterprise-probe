@@ -1,6 +1,6 @@
 {
   "plugins": {
-    "kuzzle-enterprise-probe": {
+    "kuzzle-plugin-probe": {
       "storageIndex": "probestest",
       "probes": {
         "probe_counter_1": {

@@ -1,11 +1,11 @@
 {
-  "name": "kuzzle-enterprise-probe",
+  "name": "kuzzle-plugin-probe",
   "version": "1.0.0",
-  "description": "Kuzzle Enterprise plugin: statistical data probe",
+  "description": "Kuzzle plugin: statistical data probe",
   "main": "./lib/index.js",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/kuzzleio/kuzzle-enterprise-probe.git"
+    "url": "git+https://github.com/kuzzleio/kuzzle-plugin-probe.git"
   },
   "scripts": {
     "unit-testing": "istanbul cover _mocha",
@@ -14,7 +14,6 @@
   },
   "keywords": [
     "kuzzle",
-    "enterprise",
     "plugin",
     "worker",
     "probe"
@@ -23,7 +22,7 @@
     "name": "Kuzzle Team"
   },
   "bugs": {
-    "url": "https://github.com/kuzzleio/kuzzle-enterprise-probe/issues"
+    "url": "https://github.com/kuzzleio/kuzzle-plugin-probe/issues"
   },
   "license": "Apache-2.0",
   "dependencies": {

@@ -6,7 +6,7 @@ services:
     ports:
       - "7512:7512"
     volumes:
-      - "./../kuzzle-enterprise-probe-listener/:/var/app/plugins/enabled/kuzzle-enterprise-probe-listener/"
+      - "./../kuzzle-plugin-probe-listener/:/var/app/plugins/enabled/kuzzle-plugin-probe-listener/"
       - "./docker-compose/kuzzlerc:/etc/kuzzlerc"
     depends_on:
       - redis
@@ -40,7 +40,7 @@ services:
       - kdc-redis
       - kdc-elasticsearch
     volumes:
-      - "./:/var/app/plugins/enabled/kuzzle-enterprise-probe/"
+      - "./:/var/app/plugins/enabled/kuzzle-plugin-probe/"
       - "./docker-compose/kdcrc:/etc/kuzzlerc"
     environment:
       - kuzzle_services__db__client__host=http://kdc-elasticsearch:9200
