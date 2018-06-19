@@ -24,27 +24,22 @@ const
   should = require('should'),
   sinon = require('sinon'),
   proxyquire = require('proxyquire'),
+  Bluebird = require('bluebird'),
   StubContext = require('./stubs/context.stub'),
   Request = require('kuzzle-common-objects').Request,
-  Bluebird = require('bluebird'),
   longTimeout = require('long-timeout');
 
 describe('#Testing index file', () => {
   let
     Plugin,
     plugin,
-    sandbox,
     fakeContext,
     setIntervalSpy;
 
-  before(() => {
-    sandbox = sinon.sandbox.create();
-  });
-
   beforeEach(() => {
-    sandbox.reset();
+    sinon.reset();
 
-    setIntervalSpy = sandbox.spy(longTimeout, 'setInterval');
+    setIntervalSpy = sinon.spy(longTimeout, 'setInterval');
     Plugin = proxyquire('../lib/index', {
       'long-timeout': longTimeout
     });
@@ -74,9 +69,9 @@ describe('#Testing index file', () => {
   });
 
   it('should do nothing if no probe is set', () => {
-    return plugin.init({
+    return Bluebird.resolve(plugin.init({
       storageIndex: 'bar'
-    }, fakeContext)
+    }, fakeContext))
       .then(() => {
         should(plugin.probes).be.empty();
 
@@ -92,7 +87,7 @@ describe('#Testing index file', () => {
 
   it('should prepare the DSL at startup', () => {
     const
-      stubRegister = sinon.stub().returns(Bluebird.resolve({id: 'foobar'}));
+      stubRegister = sinon.stub().resolves({id: 'foobar'});
 
     fakeContext = {
       constructors: {
@@ -120,27 +115,31 @@ describe('#Testing index file', () => {
     });
   });
 
-  it('should ignore probes without any type defined', () => {
-    return plugin.init({
-      storageIndex: 'bar',
-      probes: {
-        badProbe: {
-          index: 'foo',
-          collection: 'bar',
-          hooks: ['foo:bar', 'data:beforePublish']
+  it('should throw an error if a probe if configured without any type defined', () => {
+    return should(() => {
+      plugin.init({
+        storageIndex: 'bar',
+        probes: {
+          foo: {
+            type: 'monitor',
+            hooks: ['foo:bar']
+          },
+          badProbe: {
+            index: 'foo',
+            collection: 'bar',
+            hooks: ['foo:bar', 'data:beforePublish']
+          }
         }
-      }
-    }, fakeContext).then(() => {
-      should(plugin.probes.badProbe).be.undefined();
-    });
+      }, fakeContext);
+    }).throw('plugin-probe: [probe: badProbe] "type" parameter missing"');
   });
 
   it('should not reset the measure if an error during saving occurs', (done) => {
     fakeContext.accessors.execute = sinon.stub();
     fakeContext.accessors.execute
-      .onFirstCall().returns(Bluebird.resolve({result: true}))
-      .onSecondCall().returns(Bluebird.resolve({result: {collections: ['foo']}}))
-      .onThirdCall().returns(Bluebird.resolve({result: 'someResult'}));
+      .onFirstCall().resolves({result: true})
+      .onSecondCall().resolves({result: {collections: ['foo']}})
+      .onThirdCall().resolves({result: 'someResult'});
 
     const
       pluginConfig = {
@@ -149,7 +148,7 @@ describe('#Testing index file', () => {
           foo: {
             type: 'monitor',
             hooks: ['foo:bar'],
-            interval: 25
+            interval: 30
           }
         }
       };
@@ -157,7 +156,8 @@ describe('#Testing index file', () => {
     plugin.init(pluginConfig, fakeContext)
       .then(() => plugin.startProbes())
       .then(() => {
-        fakeContext.accessors.execute = sinon.spy(() => Bluebird.reject(new Error('some Error')));
+        fakeContext.accessors.execute.reset();
+        fakeContext.accessors.execute.rejects(new Error('some Error'));
 
         plugin.monitor(new Request({
           body: {
@@ -165,10 +165,10 @@ describe('#Testing index file', () => {
           }
         }));
 
-        should(fakeContext.accessors.execute.called).be.false();
+        should(fakeContext.accessors.execute).not.be.called();
 
         setTimeout(() => {
-          should(fakeContext.accessors.execute.calledOnce).be.true();
+          should(fakeContext.accessors.execute).be.calledOnce();
 
           setTimeout(() => {
             try {
@@ -187,10 +187,10 @@ describe('#Testing index file', () => {
   it('should call setInterval when an interval is set on a valid probe', (done) => {
     fakeContext.accessors.execute = sinon.stub();
     fakeContext.accessors.execute
-      .onFirstCall().returns(Bluebird.resolve({result: true}))
-      .onSecondCall().returns(Bluebird.resolve({result: {collections: ['foo']}}))
-      .onThirdCall().returns(Bluebird.resolve({result: 'someResult'}))
-      .onCall(4).returns(Bluebird.resolve({result: 'someResult'}));
+      .onFirstCall().resolves({result: true})
+      .onSecondCall().resolves({result: {collections: ['foo']}})
+      .onThirdCall().resolves({result: 'someResult'})
+      .onCall(4).resolves({result: 'someResult'});
 
     plugin.init({
       storageIndex: 'storageIndex',
@@ -217,9 +217,9 @@ describe('#Testing index file', () => {
   it('should not call setInterval when an error occures during collection creation', (done) => {
     fakeContext.accessors.execute = sinon.stub();
     fakeContext.accessors.execute
-      .onFirstCall().returns(Bluebird.resolve({result: true}))
-      .onSecondCall().returns(Bluebird.resolve({result: {collections: ['foo']}}))
-      .onThirdCall().returns(Bluebird.reject(new Error('some Error')));
+      .onFirstCall().resolves({result: true})
+      .onSecondCall().resolves({result: {collections: ['foo']}})
+      .onThirdCall().rejects(new Error('some Error'));
 
     plugin.init({
       storageIndex: 'storageIndex',

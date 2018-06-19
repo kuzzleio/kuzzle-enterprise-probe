@@ -26,8 +26,7 @@ const
   proxyquire = require('proxyquire'),
   StubContext = require('./stubs/context.stub'),
   longTimeout = require('long-timeout'),
-  Request = require('kuzzle-common-objects').Request,
-  Bluebird = require('bluebird');
+  Request = require('kuzzle-common-objects').Request;
 
 describe('#sampler probes', () => {
   let
@@ -89,120 +88,219 @@ describe('#sampler probes', () => {
             'baz.qux'
           ],
           interval: '1m'
-        },
-        badProbe1: {
-          type: 'sampler',
-          index: undefined,
-          collection: 'bar',
-          sampleSize: 100,
-          filter: {term: { 'foo': 'bar'}},
-          collects: '*',
-          interval: '1m'
-        },
-        badProbe2: {
-          type: 'sampler',
-          index: 'foo',
-          collection: undefined,
-          sampleSize: 100,
-          filter: {term: { 'foo': 'bar'}},
-          collects: '*',
-          interval: '1m'
-        },
-        badProbe3: {
-          type: 'sampler',
-          index: 'foo',
-          collection: 'bar',
-          sampleSize: 100,
-          filter: {term: { 'foo': 'bar'}},
-          collects: 'foobar',
-          interval: '1m'
-        },
-        badProbe4: {
-          type: 'sampler',
-          index: 'foo',
-          collection: 'bar',
-          sampleSize: 100,
-          filter: {term: { 'foo': 'bar'}},
-          collects: 123,
-          interval: '1m'
-        },
-        badProbe5: {
-          type: 'sampler',
-          index: 'foo',
-          collection: 'bar',
-          sampleSize: 100,
-          filter: {term: { 'foo': 'bar'}},
-          collects: { 'foo': 'bar' },
-          interval: '1m'
-        },
-        badProbe6: {
-          type: 'sampler',
-          index: 'foo',
-          collection: 'bar',
-          filter: {term: { 'foo': 'bar'}},
-          collects: '*',
-          interval: '1m'
-        },
-        badProbe7: {
-          type: 'sampler',
-          index: 'foo',
-          collection: 'bar',
-          sampleSize: 'foobar',
-          filter: {term: { 'foo': 'bar'}},
-          collects: '*',
-          interval: '1m'
-        },
-        badProbe8: {
-          type: 'sampler',
-          index: 'foo',
-          collection: 'bar',
-          sampleSize: 100,
-          filter: {term: { 'foo': 'bar'}},
-          interval: '1m'
-        },
-        badProbe9: {
-          type: 'sampler',
-          index: 'foo',
-          collection: 'bar',
-          sampleSize: 100,
-          filter: {term: { 'foo': 'bar'}},
-          collects: [],
-          interval: '1m'
-        },
-        badProbe10: {
-          type: 'sampler',
-          index: 'foo',
-          collection: 'bar',
-          sampleSize: 100,
-          filter: {term: { 'foo': 'bar'}},
-          collects: '*',
-          interval: 'none'
-        },
-        badProbe11: {
-          type: 'sampler',
-          index: 'foo',
-          collection: 'bar',
-          sampleSize: 100,
-          filter: {term: { 'foo': 'bar'}},
-          collects: '*'
         }
       }
     }, fakeContext, false).then(() => {
       should(plugin.probes.foo).not.be.empty().and.have.property('interval').eql(60 * 60 * 1000);
       should(plugin.probes.bar).not.be.empty().and.have.property('interval').eql(60 * 1000);
       should(plugin.probes.baz).not.be.empty().and.have.property('filter').match({});
-      should(plugin.probes.badProbe1).be.undefined();
-      should(plugin.probes.badProbe2).be.undefined();
-      should(plugin.probes.badProbe3).be.undefined();
-      should(plugin.probes.badProbe4).be.undefined();
-      should(plugin.probes.badProbe5).be.undefined();
-      should(plugin.probes.badProbe6).be.undefined();
-      should(plugin.probes.badProbe7).be.undefined();
-      should(plugin.probes.badProbe8).be.undefined();
-      should(plugin.probes.badProbe9).be.undefined();
-      should(plugin.probes.badProbe10).be.undefined();
-      should(plugin.probes.badProbe11).be.undefined();
     });
+  });
+
+  it('should throw an error if the "index" parameter is missing', () => {
+    return should(() => {
+      plugin.init({
+        storageIndex: 'bar',
+        probes: {
+          badProbe: {
+            type: 'sampler',
+            index: undefined,
+            collection: 'bar',
+            sampleSize: 100,
+            filter: {term: { 'foo': 'bar'}},
+            collects: '*',
+            interval: '1m'
+          }
+        }
+      }, fakeContext, false);
+    }).throw('plugin-probe: [probe: badProbe] Configuration error: missing index or collection');
+  });
+
+  it('should throw an error if the "collection" parameter is missing', () => {
+    return should(() => {
+      plugin.init({
+        storageIndex: 'bar',
+        probes: {
+          badProbe: {
+            type: 'sampler',
+            index: 'foo',
+            collection: undefined,
+            sampleSize: 100,
+            filter: {term: { 'foo': 'bar'}},
+            collects: '*',
+            interval: '1m'
+          }
+        }
+      }, fakeContext, false);
+    }).throw('plugin-probe: [probe: badProbe] Configuration error: missing index or collection');
+  });
+
+  it('should throw an error if the "collect" parameter is missing', () => {
+    return should(() => {
+      plugin.init({
+        storageIndex: 'bar',
+        probes: {
+          badProbe: {
+            type: 'sampler',
+            index: 'foo',
+            collection: 'bar',
+            sampleSize: 100,
+            filter: {term: { 'foo': 'bar'}},
+            interval: '1m'
+          }
+        }
+      }, fakeContext, false);
+    }).throw('plugin-probe: [probe: badProbe] A "collects" parameter is required for sampler probes');
+  });
+
+  it('should throw an error if the "collect" parameter is a malformed string', () => {
+    return should(() => {
+      plugin.init({
+        storageIndex: 'bar',
+        probes: {
+          badProbe: {
+            type: 'sampler',
+            index: 'foo',
+            collection: 'bar',
+            sampleSize: 100,
+            filter: {term: { 'foo': 'bar'}},
+            collects: 'foobar',
+            interval: '1m'
+          }
+        }
+      }, fakeContext, false);
+    }).throw('plugin-probe: [probe: badProbe] Invalid "collects" value');
+  });
+
+  it('should throw an error if the "collect" parameter is a numeric value', () => {
+    return should(() => {
+      plugin.init({
+        storageIndex: 'bar',
+        probes: {
+          badProbe: {
+            type: 'sampler',
+            index: 'foo',
+            collection: 'bar',
+            sampleSize: 100,
+            filter: {term: { 'foo': 'bar'}},
+            collects: 123,
+            interval: '1m'
+          }
+        }
+      }, fakeContext, false);
+    }).throw('plugin-probe: [probe: badProbe] Invalid "collects" format: expected array or string, got number');
+  });
+
+  it('should throw an error if the "collect" parameter is an object', () => {
+    return should(() => {
+      plugin.init({
+        storageIndex: 'bar',
+        probes: {
+          badProbe: {
+            type: 'sampler',
+            index: 'foo',
+            collection: 'bar',
+            sampleSize: 100,
+            filter: {term: { 'foo': 'bar'}},
+            collects: { 'foo': 'bar' },
+            interval: '1m'
+          }
+        }
+      }, fakeContext, false);
+    }).throw('plugin-probe: [probe: badProbe] Invalid "collects" format: expected array or string, got object');
+  });
+
+  it('should throw an error if the "collect" parameter is an empty array', () => {
+    return should(() => {
+      plugin.init({
+        storageIndex: 'bar',
+        probes: {
+          badProbe: {
+            type: 'sampler',
+            index: 'foo',
+            collection: 'bar',
+            sampleSize: 100,
+            filter: {term: { 'foo': 'bar'}},
+            collects: [],
+            interval: '1m'
+          }
+        }
+      }, fakeContext, false);
+    }).throw('plugin-probe: [probe: badProbe] A "collects" parameter is required for sampler probes');
+  });
+
+  it('should throw an error if the "sampleSize" parameter is missing', () => {
+    return should(() => {
+      plugin.init({
+        storageIndex: 'bar',
+        probes: {
+          badProbe: {
+            type: 'sampler',
+            index: 'foo',
+            collection: 'bar',
+            filter: {term: { 'foo': 'bar'}},
+            collects: '*',
+            interval: '1m'
+          }
+        }
+      }, fakeContext, false);
+    }).throw('plugin-probe: [probe: badProbe] "sampleSize" parameter missing');
+  });
+
+  it('should throw an error if the "sampleSize" parameter is invalid', () => {
+    return should(() => {
+      plugin.init({
+        storageIndex: 'bar',
+        probes: {
+          badProbe: {
+            type: 'sampler',
+            index: 'foo',
+            collection: 'bar',
+            sampleSize: 'foobar',
+            filter: {term: { 'foo': 'bar'}},
+            collects: '*',
+            interval: '1m'
+          }
+        }
+      }, fakeContext, false);
+    }).throw('plugin-probe: [probe: badProbe] invalid "sampleSize" parameter. Expected a number, got a string');
+  });
+
+  it('should throw an error if the "interval" parameter is missing', () => {
+    return should(() => {
+      plugin.init({
+        storageIndex: 'bar',
+        probes: {
+          badProbe: {
+            type: 'sampler',
+            index: 'foo',
+            collection: 'bar',
+            sampleSize: 100,
+            filter: {term: { 'foo': 'bar'}},
+            collects: '*'
+          }
+        }
+      }, fakeContext, false);
+    }).throw('plugin-probe: [probe: badProbe] An "interval" parameter is required for sampler probes');
+  });
+
+  it('should throw an error if the "interval" parameter is malformed', () => {
+    return should(() => {
+      plugin.init({
+        storageIndex: 'bar',
+        probes: {
+          badProbe: {
+            type: 'sampler',
+            index: 'foo',
+            collection: 'bar',
+            sampleSize: 100,
+            filter: {term: { 'foo': 'bar'}},
+            collects: '*',
+            interval: 'none'
+          }
+        }
+      }, fakeContext, false);
+    }).throw('plugin-probe: [probe: badProbe] An "interval" parameter is required for sampler probes');
   });
 
   it('should initialize the measures object properly', () => {
@@ -229,9 +327,9 @@ describe('#sampler probes', () => {
 
     fakeContext.accessors.execute = sinon.stub();
     fakeContext.accessors.execute
-      .onFirstCall().returns(Bluebird.resolve({result: true}))
-      .onSecondCall().returns(Bluebird.resolve({result: {collections: ['foo']}}))
-      .onThirdCall().returns(Bluebird.resolve({result: 'someResult'}));
+      .onFirstCall().resolves({result: true})
+      .onSecondCall().resolves({result: {collections: ['foo']}})
+      .onThirdCall().resolves({result: 'someResult'});
 
     const
       documentId = 'someId',
@@ -261,7 +359,7 @@ describe('#sampler probes', () => {
     }, fakeContext)
       .then(() => plugin.startProbes())
       .then(() => {
-        fakeContext.accessors.execute = sinon.stub().returns(Bluebird.resolve());
+        fakeContext.accessors.execute = sinon.stub().resolves();
         sinon.stub(plugin.dsl, 'test').returns(['filterId']);
 
         for (i = 0; i < 100; i++) {
@@ -299,10 +397,10 @@ describe('#sampler probes', () => {
   it('should create a collection with timestamp mapping if no mapping is provided and collects is not empty', (done) => {
     fakeContext.accessors.execute = sinon.stub();
     fakeContext.accessors.execute
-      .onFirstCall().returns(Bluebird.resolve({result: true}))
-      .onSecondCall().returns(Bluebird.resolve({result: {collections: ['foo']}}))
-      .onThirdCall().returns(Bluebird.resolve({result: 'someResult'}))
-      .onCall(4).returns(Bluebird.resolve({result: 'someResult'}));
+      .onFirstCall().resolves({result: true})
+      .onSecondCall().resolves({result: {collections: ['foo']}})
+      .onThirdCall().resolves({result: 'someResult'})
+      .onCall(4).resolves({result: 'someResult'});
 
     plugin.init({
       storageIndex: 'storageIndex',
@@ -338,10 +436,10 @@ describe('#sampler probes', () => {
   it('should create a collection with timestamp and provided mapping if a mapping is provided', (done) => {
     fakeContext.accessors.execute = sinon.stub();
     fakeContext.accessors.execute
-      .onFirstCall().returns(Bluebird.resolve({result: true}))
-      .onSecondCall().returns(Bluebird.resolve({result: {collections: ['foo']}}))
-      .onThirdCall().returns(Bluebird.resolve({result: 'someResult'}))
-      .onCall(4).returns(Bluebird.resolve({result: 'someResult'}));
+      .onFirstCall().resolves({result: true})
+      .onSecondCall().resolves({result: {collections: ['foo']}})
+      .onThirdCall().resolves({result: 'someResult'})
+      .onCall(4).resolves({result: 'someResult'});
 
     plugin.init({
       storageIndex: 'storageIndex',
