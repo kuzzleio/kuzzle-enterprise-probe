@@ -26,8 +26,7 @@ const
   proxyquire = require('proxyquire'),
   StubContext = require('./stubs/context.stub'),
   longTimeout = require('long-timeout'),
-  Request = require('kuzzle-common-objects').Request,
-  Bluebird = require('bluebird');
+  Request = require('kuzzle-common-objects').Request;
 
 describe('#counter probes', () => {
   let
@@ -62,18 +61,53 @@ describe('#counter probes', () => {
           increasers: ['bar:baz', 'foo:bar', 'foo:bar'],
           decreasers: ['baz:qux'],
           interval: '1 hour'
-        },
-        badProbe: {
-          type: 'counter',
-          increasers: ['baz:qux'],
-          decreasers: ['baz:qux'],
-          interval: '1m'
         }
       }
     }, fakeContext, false).then(() => {
       should(plugin.probes.bar).not.be.empty().and.have.property('interval').eql(60 * 60 * 1000);
-      should(plugin.probes.badProbe).be.undefined();
     });
+  });
+
+  it('should throw an error if there is no increaser configured', () => {
+    should(plugin.init({
+      storageIndex: 'bar',
+      probes: {
+        badProbe: {
+          type: 'counter',
+          decreasers: ['baz:qux'],
+          interval: '1m'
+        }
+      }
+    }, fakeContext, false)).be.rejectedWith('plugin-probe: [probe: badProbe] "increasers" parameter missing"');
+  });
+
+  it('should reject the promise if there is no decreaser configured', () => {
+    should(plugin.init({
+      storageIndex: 'bar',
+      probes: {
+        badProbe: {
+          type: 'counter',
+          increasers: ['baz:qux'],
+          interval: '1m'
+        }
+      }
+    }, fakeContext, false)).be.rejectedWith('plugin-probe: [probe: badProbe] "decreasers" parameter missing"');
+  });
+
+  it('should reject the promise if the same event is set for increaser and decreaser', () => {
+    return should(() => {
+      plugin.init({
+        storageIndex: 'bar',
+        probes: {
+          badProbe: {
+            type: 'counter',
+            increasers: ['baz:qux'],
+            decreasers: ['baz:qux'],
+            interval: '1m'
+          }
+        }
+      }, fakeContext, false);
+    }).throw('plugin-probe: [probe: badProbe] Configuration error: an event cannot be set both to increase and to decrease a counter');
   });
 
   it('should initialize the events mapping properly', () => {
@@ -252,14 +286,14 @@ describe('#counter probes', () => {
 
     fakeContext.accessors.execute = sinon.stub();
     fakeContext.accessors.execute
-      .onFirstCall().returns(Bluebird.resolve({result: true}))
-      .onSecondCall().returns(Bluebird.resolve({result: {collections: ['foo']}}))
-      .onThirdCall().returns(Bluebird.resolve({result: 'someResult'}));
+      .onFirstCall().resolves({result: true})
+      .onSecondCall().resolves({result: {collections: ['foo']}})
+      .onThirdCall().resolves({result: 'someResult'});
 
     plugin.init(pluginConfig, fakeContext)
       .then(() => plugin.startProbes())
       .then(() => {
-        fakeContext.accessors.execute = sinon.stub().returns(Bluebird.resolve());
+        fakeContext.accessors.execute = sinon.stub().resolves();
 
         // 2 increasers + 1 decreaser => count must be equal to 1
         plugin.counter(new Request({
@@ -302,10 +336,10 @@ describe('#counter probes', () => {
   it('should create a collection with timestamp and count mapping', (done) => {
     fakeContext.accessors.execute = sinon.stub();
     fakeContext.accessors.execute
-      .onFirstCall().returns(Bluebird.resolve({result: true}))
-      .onSecondCall().returns(Bluebird.resolve({result: {collections: ['foo']}}))
-      .onThirdCall().returns(Bluebird.resolve({result: 'someResult'}))
-      .onCall(4).returns(Bluebird.resolve({result: 'someResult'}));
+      .onFirstCall().resolves({result: true})
+      .onSecondCall().resolves({result: {collections: ['foo']}})
+      .onThirdCall().resolves({result: 'someResult'})
+      .onCall(4).resolves({result: 'someResult'});
 
     plugin.init({
       storageIndex: 'storageIndex',

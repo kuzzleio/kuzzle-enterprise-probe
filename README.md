@@ -58,7 +58,8 @@ This repo includes a docker-compose file allowing to launch a monitored Kuzzle s
 
 ## Installation
 
-Place the plugin directory under `plugins/available`, then create a symbolic link pointing to it under `plugins/enabled`.
+Place the plugin directory under `plugins/available`, then create a symbolic link pointing to it under `plugins/enabled`.  
+The plugin will be loaded by Kuzzle the next time it restarts.
 
 ## General configuration
 

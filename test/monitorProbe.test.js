@@ -26,7 +26,6 @@ const
   proxyquire = require('proxyquire'),
   StubContext = require('./stubs/context.stub'),
   Request = require('kuzzle-common-objects').Request,
-  Bluebird = require('bluebird'),
   longTimeout = require('long-timeout');
 
 describe('#monitor probes', () => {
@@ -61,17 +60,31 @@ describe('#monitor probes', () => {
           type: 'monitor',
           hooks: ['foo:bar'],
           interval: 'none'
-        },
-        badProbe: {
-          type: 'monitor',
-          hooks: ['foo:bar', 'bar:baz'],
-          interval: 'Never gonna give you up'
         }
       }
     }, fakeContext, false).then(() => {
       should(plugin.probes.foo).not.be.empty().and.have.property('interval').undefined();
-      should(plugin.probes.badProbe).be.undefined();
     });
+  });
+
+  it('should throw an error if interval parameter is misconfigured', () => {
+    return should(() => {
+      plugin.init({
+        storageIndex: 'bar',
+        probes: {
+          foo: {
+            type: 'monitor',
+            hooks: ['foo:bar'],
+            interval: 'none'
+          },
+          badProbe: {
+            type: 'monitor',
+            hooks: ['foo:bar', 'bar:baz'],
+            interval: 'Never gonna give you up'
+          }
+        }
+      }, fakeContext, false);
+    }).throw('plugin-probe: [probe: badProbe] Invalid interval "undefined".');
   });
 
   it('should initialize the events mapping properly', () => {
@@ -155,9 +168,9 @@ describe('#monitor probes', () => {
 
     fakeContext.accessors.execute = sinon.stub();
     fakeContext.accessors.execute
-      .onFirstCall().returns(Bluebird.resolve({result: true}))
-      .onSecondCall().returns(Bluebird.resolve({result: {collections: ['foo']}}))
-      .onThirdCall().returns(Bluebird.resolve({result: 'someResult'}));
+      .onFirstCall().resolves({result: true})
+      .onSecondCall().resolves({result: {collections: ['foo']}})
+      .onThirdCall().resolves({result: 'someResult'});
 
     plugin.init({
       storageIndex: 'bar',
@@ -171,7 +184,7 @@ describe('#monitor probes', () => {
     }, fakeContext)
       .then(() => plugin.startProbes())
       .then(() => {
-        fakeContext.accessors.execute = sinon.stub().returns(Bluebird.resolve());
+        fakeContext.accessors.execute = sinon.stub().resolves();
 
         plugin.monitor(new Request({
           body: {
@@ -208,10 +221,10 @@ describe('#monitor probes', () => {
   it('should create a collection with timestamp and event fields mapping', (done) => {
     fakeContext.accessors.execute = sinon.stub();
     fakeContext.accessors.execute
-      .onFirstCall().returns(Bluebird.resolve({result: true}))
-      .onSecondCall().returns(Bluebird.resolve({result: {collections: ['foo']}}))
-      .onThirdCall().returns(Bluebird.resolve({result: 'someResult'}))
-      .onCall(4).returns(Bluebird.resolve({result: 'someResult'}));
+      .onFirstCall().resolves({result: true})
+      .onSecondCall().resolves({result: {collections: ['foo']}})
+      .onThirdCall().resolves({result: 'someResult'})
+      .onCall(4).resolves({result: 'someResult'});
 
     plugin.init({
       storageIndex: 'storageIndex',

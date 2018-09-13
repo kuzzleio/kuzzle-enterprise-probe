@@ -26,8 +26,7 @@ const
   proxyquire = require('proxyquire'),
   StubContext = require('./stubs/context.stub'),
   longTimeout = require('long-timeout'),
-  Request = require('kuzzle-common-objects').Request,
-  Bluebird = require('bluebird');
+  Request = require('kuzzle-common-objects').Request;
 
 describe('#watcher probes', () => {
   let
@@ -87,41 +86,6 @@ describe('#watcher probes', () => {
           index: 'foo',
           collection: 'bar',
           collects: []
-        },
-        badProbe1: {
-          type: 'watcher',
-          index: undefined,
-          collection: 'bar',
-          filter: {term: {'foo': 'bar'}},
-          collects: '*'
-        },
-        badProbe2: {
-          type: 'watcher',
-          index: 'foo',
-          collection: undefined,
-          filter: {term: {'foo': 'bar'}},
-          collects: '*'
-        },
-        badProbe3: {
-          type: 'watcher',
-          index: 'foo',
-          collection: 'bar',
-          filter: {term: {'foo': 'bar'}},
-          collects: 'foobar'
-        },
-        badProbe4: {
-          type: 'watcher',
-          index: 'foo',
-          collection: 'bar',
-          filter: {term: {'foo': 'bar'}},
-          collects: 123
-        },
-        badProbe5: {
-          type: 'watcher',
-          index: 'foo',
-          collection: 'bar',
-          filter: {term: {'foo': 'bar'}},
-          collects: {'foo': 'bar'}
         }
       }
     }, fakeContext, false);
@@ -130,11 +94,91 @@ describe('#watcher probes', () => {
     should(plugin.probes.bar).not.be.empty().and.have.property('interval').eql(60 * 1000);
     should(plugin.probes.baz).not.be.empty().and.have.property('filter').match({});
     should(plugin.probes.qux).not.be.empty().and.have.property('collects').null();
-    should(plugin.probes.badProbe1).be.undefined();
-    should(plugin.probes.badProbe2).be.undefined();
-    should(plugin.probes.badProbe3).be.undefined();
-    should(plugin.probes.badProbe4).be.undefined();
-    should(plugin.probes.badProbe5).be.undefined();
+  });
+
+  it('should throw an error if the "index" parameter is missing', () => {
+    return should(() => {
+      plugin.init({
+        storageIndex: 'bar',
+        probes: {
+          badProbe: {
+            type: 'watcher',
+            index: undefined,
+            collection: 'bar',
+            filter: {term: {'foo': 'bar'}},
+            collects: '*'
+          }
+        }
+      }, fakeContext, false);
+    }).throw('plugin-probe: [probe: badProbe] Configuration error: missing index or collection');
+  });
+
+  it('should throw an error if the "collection" parameter is missing', () => {
+    return should(() => {
+      plugin.init({
+        storageIndex: 'bar',
+        probes: {
+          badProbe: {
+            type: 'watcher',
+            index: 'foo',
+            collection: undefined,
+            filter: {term: {'foo': 'bar'}},
+            collects: '*'
+          }
+        }
+      }, fakeContext, false);
+    }).throw('plugin-probe: [probe: badProbe] Configuration error: missing index or collection');
+  });
+
+  it('should throw an error if the "collect" parameter is a malformed string', () => {
+    return should(() => {
+      plugin.init({
+        storageIndex: 'bar',
+        probes: {
+          badProbe: {
+            type: 'watcher',
+            index: 'foo',
+            collection: 'bar',
+            filter: {term: {'foo': 'bar'}},
+            collects: 'foobar'
+          }
+        }
+      }, fakeContext, false);
+    }).throw('plugin-probe: [probe: badProbe] Invalid "collects" value');
+  });
+
+  it('should throw an error if the "collect" parameter is a numeric value', () => {
+    return should(() => {
+      plugin.init({
+        storageIndex: 'bar',
+        probes: {
+          badProbe: {
+            type: 'watcher',
+            index: 'foo',
+            collection: 'bar',
+            filter: {term: {'foo': 'bar'}},
+            collects: 123
+          }
+        }
+      }, fakeContext, false);
+    }).throw('plugin-probe: [probe: badProbe] Invalid "collects" format: expected array or string, got number');
+  });
+
+  it('should throw an error if the "collect" parameter is an object', () => {
+    return should(() => {
+      plugin.init({
+        storageIndex: 'bar',
+        probes: {
+          badProbe: {
+            type: 'watcher',
+            index: 'foo',
+            collection: 'bar',
+            filter: {term: {'foo': 'bar'}},
+            collects: {'foo': 'bar'}
+          }
+        }
+      }, fakeContext, false);
+    }).throw('plugin-probe: [probe: badProbe] Invalid "collects" format: expected array or string, got object');
   });
 
   it('should initialize the measures object properly', () => {
@@ -180,7 +224,7 @@ describe('#watcher probes', () => {
     }, fakeContext)
       .then(() => {
         sinon.stub(plugin.dsl, 'test').returns(['filterId']);
-        fakeContext.accessors.execute = sinon.stub().returns(Bluebird.resolve());
+        fakeContext.accessors.execute = sinon.stub().resolves();
 
         plugin.watcher(new Request({
           body: {
@@ -225,7 +269,7 @@ describe('#watcher probes', () => {
       }
     }, fakeContext).then(() => {
       sinon.stub(plugin.dsl, 'test').returns(['filterId']);
-      fakeContext.accessors.execute = sinon.stub().returns(Bluebird.resolve());
+      fakeContext.accessors.execute = sinon.stub().resolves();
 
       plugin.watcher(new Request({
         body: {
@@ -317,10 +361,10 @@ describe('#watcher probes', () => {
   it('should create a collection with timestamp and count mapping if no mapping is provided and collects is empty', (done) => {
     fakeContext.accessors.execute = sinon.stub();
     fakeContext.accessors.execute
-      .onFirstCall().returns(Bluebird.resolve({result: true}))
-      .onSecondCall().returns(Bluebird.resolve({result: {collections: ['foo']}}))
-      .onThirdCall().returns(Bluebird.resolve({result: 'someResult'}))
-      .onCall(4).returns(Bluebird.resolve({result: 'someResult'}));
+      .onFirstCall().resolves({result: true})
+      .onSecondCall().resolves({result: {collections: ['foo']}})
+      .onThirdCall().resolves({result: 'someResult'})
+      .onCall(4).resolves({result: 'someResult'});
 
     plugin.init({
       storageIndex: 'storageIndex',
@@ -356,10 +400,10 @@ describe('#watcher probes', () => {
   it('should create a collection with timestamp mapping if no mapping is provided and collects is not empty', (done) => {
     fakeContext.accessors.execute = sinon.stub();
     fakeContext.accessors.execute
-      .onFirstCall().returns(Bluebird.resolve({result: true}))
-      .onSecondCall().returns(Bluebird.resolve({result: {collections: ['foo']}}))
-      .onThirdCall().returns(Bluebird.resolve({result: 'someResult'}))
-      .onCall(4).returns(Bluebird.resolve({result: 'someResult'}));
+      .onFirstCall().resolves({result: true})
+      .onSecondCall().resolves({result: {collections: ['foo']}})
+      .onThirdCall().resolves({result: 'someResult'})
+      .onCall(4).resolves({result: 'someResult'});
 
     plugin.init({
       storageIndex: 'storageIndex',
@@ -393,10 +437,10 @@ describe('#watcher probes', () => {
   it('should create a collection with timestamp and provided mapping mapping if a mapping is provided', (done) => {
     fakeContext.accessors.execute = sinon.stub();
     fakeContext.accessors.execute
-      .onFirstCall().returns(Bluebird.resolve({result: true}))
-      .onSecondCall().returns(Bluebird.resolve({result: {collections: ['foo']}}))
-      .onThirdCall().returns(Bluebird.resolve({result: 'someResult'}))
-      .onCall(4).returns(Bluebird.resolve({result: 'someResult'}));
+      .onFirstCall().resolves({result: true})
+      .onSecondCall().resolves({result: {collections: ['foo']}})
+      .onThirdCall().resolves({result: 'someResult'})
+      .onCall(4).resolves({result: 'someResult'});
 
     plugin.init({
       storageIndex: 'storageIndex',
