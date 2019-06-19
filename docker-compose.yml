@@ -2,12 +2,15 @@ version: '3'
 
 services:
   kuzzle:
+    command: sh -c '/var/app/run.sh'
     image: kuzzleio/kuzzle
     ports:
       - "7512:7512"
     volumes:
       - "./../kuzzle-plugin-probe-listener/:/var/app/plugins/enabled/kuzzle-plugin-probe-listener/"
       - "./docker-compose/kuzzlerc:/etc/kuzzlerc"
+      - "./docker-compose/install-plugins.sh:/var/app/install-plugins.sh"
+      - "./docker-compose/run.sh:/var/app/run.sh"
     depends_on:
       - redis
       - elasticsearch
@@ -17,7 +20,7 @@ services:
       - kuzzle_services__memoryStorage__node__host=redis
 
   redis:
-    image: redis:3.2
+    image: redis:5
 
   elasticsearch:
     image: kuzzleio/elasticsearch:5.6.10
@@ -27,6 +30,7 @@ services:
       - cluster.name=kuzzle
 
   kdc-kuzzle:
+    command: sh -c '/var/app/run.sh'
     image: kuzzleio/kuzzle
     ports:
       - "7515:7512"
@@ -39,6 +43,8 @@ services:
     volumes:
       - "./:/var/app/plugins/enabled/kuzzle-plugin-probe/"
       - "./docker-compose/kdcrc:/etc/kuzzlerc"
+      - "./docker-compose/install-plugins.sh:/var/app/install-plugins.sh"
+      - "./docker-compose/run.sh:/var/app/run.sh"
     environment:
       - kuzzle_services__db__client__host=http://kdc-elasticsearch:9200
       - kuzzle_services__internalCache__node__host=kdc-redis
@@ -46,7 +52,7 @@ services:
       - NODE_ENV=production
 
   kdc-redis:
-    image: redis:3.2
+    image: redis:5
 
   kdc-elasticsearch:
     image: kuzzleio/elasticsearch:5.6.10
