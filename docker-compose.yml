@@ -2,7 +2,8 @@ version: '3'
 
 services:
   kuzzle:
-    command: sh -c '/var/app/run.sh'
+    command: /var/app/run.sh
+``
     image: kuzzleio/kuzzle
     ports:
       - "7512:7512"
@@ -30,7 +31,7 @@ services:
       - cluster.name=kuzzle
 
   kdc-kuzzle:
-    command: sh -c '/var/app/run.sh'
+    command: /var/app/run.sh
     image: kuzzleio/kuzzle
     ports:
       - "7515:7512"
