@@ -1,0 +1,8 @@
+group: edge
+
+node_js:
+  - "6"
+
+script:
+  # Run tests
+  - npm install --unsafe-perm && npm test

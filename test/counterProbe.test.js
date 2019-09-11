@@ -179,7 +179,7 @@ describe('#counter probes', () => {
       should(fakeContext.accessors.execute.args[0][0].input.controller).be.eql('document');
       should(fakeContext.accessors.execute.args[0][0].input.action).be.eql('create');
       should(fakeContext.accessors.execute.args[0][0].input.body.count).be.eql(1);
-      should(fakeContext.accessors.execute.args[0][0].input.body.hasOwnProperty('timestamp')).be.true();
+      should(fakeContext.accessors.execute.args[0][0].input.body).ownProperty('timestamp');
 
       // measure should never be reset
       setTimeout(() => {
@@ -242,7 +242,7 @@ describe('#counter probes', () => {
       should(fakeContext.accessors.execute.args[0][0].input.controller).be.eql('document');
       should(fakeContext.accessors.execute.args[0][0].input.action).be.eql('create');
       should(fakeContext.accessors.execute.args[0][0].input.body.count).be.eql(-1);
-      should(fakeContext.accessors.execute.args[0][0].input.body.hasOwnProperty('timestamp')).be.true();
+      should(fakeContext.accessors.execute.args[0][0].input.body).ownProperty('timestamp');
 
       plugin.counter(new Request({
         body: {
@@ -257,7 +257,7 @@ describe('#counter probes', () => {
       should(fakeContext.accessors.execute.args[1][0].input.controller).be.eql('document');
       should(fakeContext.accessors.execute.args[1][0].input.action).be.eql('create');
       should(fakeContext.accessors.execute.args[1][0].input.body.count).be.eql(-2);
-      should(fakeContext.accessors.execute.args[1][0].input.body.hasOwnProperty('timestamp')).be.true();
+      should(fakeContext.accessors.execute.args[1][0].input.body).ownProperty('timestamp');
 
 
       // measure should never be reset
@@ -322,7 +322,7 @@ describe('#counter probes', () => {
           should(fakeContext.accessors.execute.args[0][0].input.controller).be.eql('document');
           should(fakeContext.accessors.execute.args[0][0].input.action).be.eql('create');
           should(fakeContext.accessors.execute.args[0][0].input.body.count).be.eql(1);
-          should(fakeContext.accessors.execute.args[0][0].input.body.hasOwnProperty('timestamp')).be.true();
+          should(fakeContext.accessors.execute.args[0][0].input.body).ownProperty('timestamp');
 
           setTimeout(() => {
             should(plugin.measures.foo.count).be.eql(1);

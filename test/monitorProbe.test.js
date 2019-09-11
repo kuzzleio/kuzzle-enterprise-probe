@@ -148,7 +148,7 @@ describe('#monitor probes', () => {
       should(fakeContext.accessors.execute.args[0][0].input.controller).be.eql('document');
       should(fakeContext.accessors.execute.args[0][0].input.action).be.eql('create');
       should(fakeContext.accessors.execute.args[0][0].input.body['foo:bar']).be.eql(1);
-      should(fakeContext.accessors.execute.args[0][0].input.body.hasOwnProperty('timestamp')).be.true();
+      should(fakeContext.accessors.execute.args[0][0].input.body).ownProperty('timestamp');
 
       // measure should have been reset
       setTimeout(() => {
@@ -202,7 +202,7 @@ describe('#monitor probes', () => {
           should(fakeContext.accessors.execute.args[0][0].input.controller).be.eql('document');
           should(fakeContext.accessors.execute.args[0][0].input.action).be.eql('create');
           should(fakeContext.accessors.execute.args[0][0].input.body['foo:bar']).be.eql(1);
-          should(fakeContext.accessors.execute.args[0][0].input.body.hasOwnProperty('timestamp')).be.true();
+          should(fakeContext.accessors.execute.args[0][0].input.body).ownProperty('timestamp');
 
           setTimeout(() => {
             try {
